@@ -1,0 +1,42 @@
+server:
+  port: 8081
+
+spring:
+  # ------------------------------------
+  # 1. ? CONFIGURACIÓN DE BASE DE DATOS (¡CORREGIDA!)
+  # ------------------------------------
+  datasource:
+    # ¡URL ACTUALIZADA a tu nueva base de datos!
+    url: jdbc:postgresql://ep-cold-dawn-ad5haipw-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require
+    username: neondb_owner
+    # ¡CONTRASEÑA ACTUALIZADA!
+    password: npg_npSD02yaotHf
+    driver-class-name: org.postgresql.Driver
+
+  # 2. Configuración de JPA/Hibernate (¡CAMBIOS IMPORTANTES!)
+  jpa:
+    hibernate:
+      # 'update' le dice a Hibernate que cree/actualice las tablas
+      # basado en tus archivos @Entity de Kotlin.
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
+
+  # 3. Configuración de Flyway (¡DESACTIVADO!)
+  flyway:
+    enabled: false # Desactivamos Flyway para evitar el error de versión
+
+# ============================================
+# ? CONFIGURACIÓN DE SEGURIDAD JWT (AADIDA)
+# ============================================
+application:
+  security:
+    jwt:
+      # Clave secreta BASE64 para firmar los tokens JWT.
+      # Debe ser reemplazada por una clave aleatoria y nica para tu proyecto.
+      secret-key: aHRtbC10ZXNpc2R1b2xpbmdvY2xvbmUtdW5pdmVyc2l0YXJpYS1uby11c2FyLWVzdGEtY2xhdmU=
+
+      # Tiempo de expiracin del token en milisegundos (86400000 ms = 24 horas)
+      expiration: 86400000
