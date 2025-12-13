@@ -1,16 +1,20 @@
 package com.duolingo.clone.language_backend.entity
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Id
-import jakarta.persistence.Table
+import jakarta.persistence.*
+import java.util.UUID
 
 @Entity
 @Table(name = "question_type")
 data class QuestionTypeEntity(
     @Id
-    val id: String, // Ejemplo: 'TRANSLATION_TO_TARGET'
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    val id: UUID? = null,
 
-    @Column
+    // --- CORRECCIÓN AQUÍ ---
+    // El campo DEBE llamarse 'typeName' para que el repositorio funcione
+    @Column(name = "type_name", nullable = false, unique = true)
+    val typeName: String,
+
+    @Column(name = "description")
     val description: String? = null
 )

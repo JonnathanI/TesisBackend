@@ -1,7 +1,6 @@
 package com.duolingo.clone.language_backend.entity
 
-import com.fasterxml.jackson.annotation.JsonBackReference // <-- AÑADIR
-import com.fasterxml.jackson.annotation.JsonManagedReference
+import com.fasterxml.jackson.annotation.JsonBackReference // <--- IMPORTANTE: Agrega esto
 import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.*
 import java.util.UUID
@@ -13,10 +12,9 @@ data class LessonEntity(
     @GeneratedValue(strategy = GenerationType.AUTO)
     val id: UUID? = null,
 
-    // Detiene la serialización en esta dirección
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "unit_id", nullable = false)
-    @JsonManagedReference
+    @JsonBackReference // <--- ¡ESTA LÍNEA DETIENE EL BUCLE!
     val unit: UnitEntity,
 
     @Column(nullable = false)
@@ -28,7 +26,6 @@ data class LessonEntity(
     @Column(name = "required_xp", nullable = false)
     val requiredXp: Int,
 
-    // Esta es la referencia "Managed" para la relación Lesson ↔ Question (si existe)
     @OneToMany(mappedBy = "lesson", cascade = [CascadeType.ALL], orphanRemoval = true)
     @JsonIgnore
     val questions: List<QuestionEntity> = emptyList()

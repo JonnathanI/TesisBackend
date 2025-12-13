@@ -3,6 +3,7 @@ package com.duolingo.clone.language_backend.service
 import com.duolingo.clone.language_backend.dto.AnswerSubmission
 import com.duolingo.clone.language_backend.dto.LessonProgressDTO
 import com.duolingo.clone.language_backend.dto.PracticeAnswerSubmission
+import com.duolingo.clone.language_backend.dto.UnitStatusDTO
 import com.duolingo.clone.language_backend.entity.*
 import com.duolingo.clone.language_backend.repository.*
 import com.duolingo.clone.language_backend.exception.GameEndException
@@ -21,12 +22,13 @@ class ProgressService(
     private val userRepository: UserRepository,
     private val userLessonProgressRepository: UserLessonProgressRepository,
     private val transactionLogRepository: TransactionLogRepository,
-    private val userQuestionDataRepository: UserQuestionDataRepository
+    private val userQuestionDataRepository: UserQuestionDataRepository,
+    private val unitRepository: UnitRepository
 ) {
-    private val XP_PER_CORRECT_ANSWER = 1
+    private val XP_PER_CORRECT_ANSWER = 1L
     private val LINGOTS_PER_LESSON = 10
 
-    private val MAX_HEARTS = 5
+    private val MAX_HEARTS = 3
     private val REFILL_TIME_MINUTES: Long = 240
 
     // CONSTANTE AÑADIDA para la sesión de práctica
@@ -318,5 +320,50 @@ class ProgressService(
 
         // Devolver la lista mezclada de repaso y nuevas preguntas
         return practiceList.shuffled()
+    }
+
+    fun getCourseProgress(courseId: UUID, userId: UUID): List<UnitStatusDTO> {
+        // 1. Obtener todas las unidades del curso ordenadas
+        val units = unitRepository.findAllByCourseIdOrderByUnitOrderAsc(courseId)
+
+        // 2. Obtener todo el progreso del usuario (para no hacer mil consultas)
+        val userProgress = userLessonProgressRepository.findByUserId(userId)
+        // Set de IDs de lecciones completadas para búsqueda rápida
+        val completedLessonIds = userProgress.filter { it.isCompleted }.map { it.lesson.id }.toSet()
+
+        val result = mutableListOf<UnitStatusDTO>()
+
+        // La primera unidad SIEMPRE está desbloqueada
+        var isPreviousUnitCompleted = true
+
+        for (unit in units) {
+            // Buscar lecciones de esta unidad
+            val lessons = lessonRepository.findAllByUnitIdOrderByLessonOrderAsc(unit.id!!)
+
+            // Una unidad está COMPLETA si tiene lecciones y TODAS están en el set de completadas
+            val isUnitCompleted = if (lessons.isNotEmpty()) {
+                lessons.all { lesson -> completedLessonIds.contains(lesson.id) }
+            } else {
+                false // Si no tiene lecciones, no se puede completar (o podrías poner true si prefieres)
+            }
+
+            // Está BLOQUEADA si la anterior NO se completó
+            val isLocked = !isPreviousUnitCompleted
+
+            result.add(UnitStatusDTO(
+                id = unit.id!!,
+                title = unit.title,
+                unitOrder = unit.unitOrder,
+                isLocked = isLocked,
+                isCompleted = isUnitCompleted
+            ))
+
+            // Preparar el estado para la siguiente vuelta del bucle
+            if (!isUnitCompleted) {
+                isPreviousUnitCompleted = false
+            }
+        }
+
+        return result
     }
 }

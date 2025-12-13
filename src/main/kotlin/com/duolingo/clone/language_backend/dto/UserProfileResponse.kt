@@ -6,9 +6,10 @@ data class UserProfileResponse(
     val fullName: String,
     val username: String,
     val joinedAt: LocalDateTime,
-    val totalXp: Int,
+    val totalXp: Long,
     val currentStreak: Int,
     val lingots: Int,
+    val heartsCount: Int,
     val league: String,
     val avatarData: String?
 )

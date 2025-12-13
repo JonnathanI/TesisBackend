@@ -3,6 +3,7 @@ package com.duolingo.clone.language_backend.controller
 import com.duolingo.clone.language_backend.dto.AnswerSubmission
 import com.duolingo.clone.language_backend.dto.LessonProgressDTO
 import com.duolingo.clone.language_backend.dto.PracticeAnswerSubmission // ¡NUEVO IMPORT!
+import com.duolingo.clone.language_backend.dto.UnitStatusDTO
 import com.duolingo.clone.language_backend.entity.QuestionEntity
 import com.duolingo.clone.language_backend.entity.UserLessonProgressEntity
 import com.duolingo.clone.language_backend.service.JwtService
@@ -134,5 +135,15 @@ class ProgressController(
         progressService.submitPracticeAnswer(userUuid, submission)
 
         // No se requiere 'return' ya que el @ResponseStatus maneja la respuesta.
+    }
+
+    @GetMapping("/course/{courseId}")
+    fun getCourseStatus(
+        @AuthenticationPrincipal userId: String,
+        @PathVariable courseId: UUID
+    ): ResponseEntity<List<UnitStatusDTO>> {
+        val userUuid = UUID.fromString(userId)
+        val statusList = progressService.getCourseProgress(courseId, userUuid)
+        return ResponseEntity.ok(statusList)
     }
 }

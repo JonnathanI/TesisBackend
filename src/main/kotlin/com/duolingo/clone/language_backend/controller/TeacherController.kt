@@ -8,11 +8,11 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/teacher") // Ruta base para todo lo relacionado con profesores
+@RequestMapping("/api/teacher") // <--- RUTA BASE: /api/teacher
 class TeacherController(private val userService: UserService) {
 
     // Endpoint: GET /api/teacher/students
-    @GetMapping("/students")
+    @GetMapping("/students") // <--- RUTA COMPLETA: /api/teacher/students
     fun getAllStudents(): ResponseEntity<List<StudentDataDTO>> {
         val students = userService.getAllStudents()
         return ResponseEntity.ok(students)

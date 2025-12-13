@@ -7,4 +7,5 @@ import java.util.UUID
 interface UnitRepository : JpaRepository<UnitEntity, UUID> {
     // Buscar unidades por curso y orden (para la ruta de aprendizaje)
     fun findByCourseIdAndUnitOrder(courseId: UUID, unitOrder: Int): UnitEntity?
+    fun findAllByCourseIdOrderByUnitOrderAsc(courseId: UUID): List<UnitEntity>
 }

@@ -7,6 +7,7 @@ import com.duolingo.clone.language_backend.entity.*
 import com.duolingo.clone.language_backend.repository.*
 import org.springframework.stereotype.Service
 import java.util.UUID
+import java.util.NoSuchElementException
 
 @Service
 class ContentService(
@@ -17,7 +18,6 @@ class ContentService(
     private val questionTypeRepository: QuestionTypeRepository
 ) {
 
-    // ... (tus funciones createUnit y createLesson están bien)
     fun createUnit(request: UnitRequest): UnitEntity {
         val course = courseRepository.findById(request.courseId)
             .orElseThrow { NoSuchElementException("Curso no encontrado con ID: ${request.courseId}") }
@@ -43,12 +43,12 @@ class ContentService(
         return lessonRepository.save(newLesson)
     }
 
-
     // --- FUNCIÓN CREATEQUESTION (ACTUALIZADA) ---
     fun createQuestion(request: QuestionRequest): QuestionEntity {
         val lesson = lessonRepository.findById(request.lessonId)
             .orElseThrow { NoSuchElementException("Lección no encontrada con ID: ${request.lessonId}") }
 
+        // Busca el tipo de pregunta por su ID (UUID)
         val questionType = questionTypeRepository.findById(request.questionTypeId)
             .orElseThrow { NoSuchElementException("Tipo de pregunta no encontrado con ID: ${request.questionTypeId}") }
 
@@ -57,8 +57,8 @@ class ContentService(
             questionType = questionType,
             textSource = request.textSource,
             textTarget = request.textTarget,
-            options = request.options, // <-- ¡AÑADIDO!
-            audio_url = request.audioUrl, // Tu entidad usa audio_url
+            options = request.options,
+            audio_url = request.audioUrl,
             hintJson = request.hintJson,
             difficultyScore = request.difficultyScore
         )
@@ -68,7 +68,6 @@ class ContentService(
     // --- ¡NUEVAS FUNCIONES AÑADIDAS! ---
 
     fun getQuestionsByLesson(lessonId: UUID): List<QuestionEntity> {
-        // Simplemente devuelve todas las preguntas para esa lección
         return questionRepository.findAllByLessonId(lessonId)
     }
 
@@ -79,14 +78,16 @@ class ContentService(
         questionRepository.deleteById(questionId)
     }
 
-    // ... (tu función ensureQuestionTypesExist está bien)
     fun ensureQuestionTypesExist() {
         if (questionTypeRepository.count() == 0L) {
             val types = listOf(
-                QuestionTypeEntity("TRANSLATION_TO_TARGET", "Traduce una frase a la lengua objetivo."),
-                QuestionTypeEntity("SELECT_WORD", "Selecciona la palabra correcta para la traducción."),
-                QuestionTypeEntity("LISTEN_AND_TYPE", "Escucha una frase y escríbela."),
-                QuestionTypeEntity("MATCHING_PAIRS", "Empareja palabras con sus traducciones.")
+                // Assuming QuestionTypeEntity constructor is (typeName: String, description: String)
+                // You might need to adjust this if your entity has an ID or other fields first.
+                // If it's a data class with a nullable ID as the first param, pass null for it.
+                QuestionTypeEntity(typeName = "TRANSLATION_TO_TARGET", description = "Traduce una frase a la lengua objetivo."),
+                QuestionTypeEntity(typeName = "SELECT_WORD", description = "Selecciona la palabra correcta para la traducción."),
+                QuestionTypeEntity(typeName = "LISTEN_AND_TYPE", description = "Escucha una frase y escríbela."),
+                QuestionTypeEntity(typeName = "MATCHING_PAIRS", description = "Empareja palabras con sus traducciones.")
             )
             questionTypeRepository.saveAll(types)
         }
