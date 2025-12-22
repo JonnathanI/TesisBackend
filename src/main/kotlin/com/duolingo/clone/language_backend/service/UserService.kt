@@ -1,5 +1,8 @@
 package com.duolingo.clone.language_backend.service
 
+import com.duolingo.clone.language_backend.dto.BulkRegisterRequest
+import com.duolingo.clone.language_backend.dto.BulkRegisterResponse
+import com.duolingo.clone.language_backend.dto.BulkRegistrationError
 import com.duolingo.clone.language_backend.dto.StudentDataDTO
 import com.duolingo.clone.language_backend.entity.UserEntity
 import com.duolingo.clone.language_backend.enums.Role // <--- Importación correcta
@@ -67,5 +70,40 @@ class UserService(
                 currentStreak = user.currentStreak
             )
         }
+    }
+
+    // === LÓGICA DE REGISTRO MASIVO PARA LA EMPRESA ===
+    fun bulkRegisterStudents(request: BulkRegisterRequest): BulkRegisterResponse {
+        var successCount = 0
+        var failureCount = 0
+        val errors = mutableListOf<BulkRegistrationError>()
+
+        request.students.forEach { studentItem ->
+            try {
+                // Registramos al alumno como un estudiante estándar
+                registerStudent(
+                    email = studentItem.email,
+                    password = studentItem.password,
+                    fullName = studentItem.fullName
+                )
+                successCount++
+            } catch (e: Exception) {
+                // Si falla un registro individual (ej. email duplicado), guardamos el error y continuamos
+                failureCount++
+                errors.add(
+                    BulkRegistrationError(
+                        email = studentItem.email,
+                        message = e.message ?: "Error desconocido durante el registro masivo"
+                    )
+                )
+            }
+        }
+
+        return BulkRegisterResponse(
+            totalProcessed = request.students.size,
+            successCount = successCount,
+            failureCount = failureCount,
+            errors = errors
+        )
     }
 }

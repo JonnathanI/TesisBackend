@@ -1,8 +1,6 @@
 package com.duolingo.clone.language_backend.controller
 
-import com.duolingo.clone.language_backend.dto.AuthResponse
-import com.duolingo.clone.language_backend.dto.LoginRequest
-import com.duolingo.clone.language_backend.dto.RegisterRequest // Importa el DTO actualizado
+import com.duolingo.clone.language_backend.dto.*
 import com.duolingo.clone.language_backend.service.UserService
 import com.duolingo.clone.language_backend.service.JwtService
 import org.springframework.http.HttpStatus
@@ -48,6 +46,17 @@ class AuthController(
             return ResponseEntity.badRequest().build()
         }
     }
+
+
+    // === NUEVO ENDPOINT PARA CARGA MASIVA DE ALUMNOS ===
+    // Este método permite a la empresa registrar a todos los alumnos de una vez
+    @PostMapping("/register-bulk")
+    fun registerBulk(@RequestBody request: BulkRegisterRequest): ResponseEntity<BulkRegisterResponse> {
+        // Llamamos al servicio que procesa la lista uno por uno
+        val result = userService.bulkRegisterStudents(request)
+        return ResponseEntity.ok(result)
+    }
+
 
     // POST /api/auth/login
     @PostMapping("/login")
