@@ -9,9 +9,7 @@ import com.duolingo.clone.language_backend.repository.RegistrationCodeRepository
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import java.time.Instant
-import java.time.ZoneId
-import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
+
 import java.util.*
 import java.util.regex.Pattern
 
