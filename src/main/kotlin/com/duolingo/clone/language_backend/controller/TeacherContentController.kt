@@ -9,8 +9,12 @@ import org.springframework.web.bind.annotation.*
 import java.math.BigDecimal
 import java.util.UUID
 
+/**
+ * Controlador para la gestión de contenido académico (Unidades, Lecciones y Preguntas).
+ * Incluye correcciones para el manejo de tipos numéricos desde JSON y soporte para gamificación.
+ */
 @RestController
-@RequestMapping("/api/teacher/content") // <--- ESTA ES LA RUTA QUE TE DABA ERROR
+@RequestMapping("/api/teacher/content")
 class TeacherContentController(
     private val unitRepository: UnitRepository,
     private val lessonRepository: LessonRepository,
@@ -19,53 +23,69 @@ class TeacherContentController(
     private val questionTypeRepository: QuestionTypeRepository
 ) {
 
-    // 1. CREAR UNIDAD
+    // ==========================================
+    // 1. GESTIÓN DE UNIDADES
+    // ==========================================
+
     @PostMapping("/units")
     fun createUnit(@RequestBody request: Map<String, Any>): ResponseEntity<UnitEntity> {
         val courseId = UUID.fromString(request["courseId"] as String)
         val title = request["title"] as String
-        val order = (request["unitOrder"] as Int)
+        // Corrección: Jackson puede deserializar números como Long o Double.
+        // Usar 'as Number' permite convertir de forma segura a Int.
+        val order = (request["unitOrder"] as Number).toInt()
 
-        val course = courseRepository.findById(courseId).orElseThrow()
+        val course = courseRepository.findById(courseId)
+            .orElseThrow { RuntimeException("Curso no encontrado con ID: $courseId") }
+
         val unit = UnitEntity(title = title, unitOrder = order, course = course)
         return ResponseEntity.ok(unitRepository.save(unit))
     }
 
-    // 2. ACTUALIZAR UNIDAD
     @PutMapping("/units/{id}")
     fun updateUnit(@PathVariable id: UUID, @RequestBody request: Map<String, Any>): ResponseEntity<UnitEntity> {
-        val unit = unitRepository.findById(id).orElseThrow { RuntimeException("Unidad no encontrada") }
+        val unit = unitRepository.findById(id)
+            .orElseThrow { RuntimeException("Unidad no encontrada") }
+
         val newTitle = request["title"] as String
         val newOrder = (request["unitOrder"] as Number).toInt()
+
         val updatedUnit = unit.copy(title = newTitle, unitOrder = newOrder)
         return ResponseEntity.ok(unitRepository.save(updatedUnit))
     }
 
-    // 3. ELIMINAR UNIDAD
     @DeleteMapping("/units/{id}")
     fun deleteUnit(@PathVariable id: UUID): ResponseEntity<Void> {
         unitRepository.deleteById(id)
         return ResponseEntity.ok().build()
     }
 
-    // --- LECCIONES ---
+    // ==========================================
+    // 2. GESTIÓN DE LECCIONES
+    // ==========================================
+
     @PostMapping("/lessons")
     fun createLesson(@RequestBody request: Map<String, Any>): ResponseEntity<LessonEntity> {
         val unitId = UUID.fromString(request["unitId"] as String)
         val title = request["title"] as String
-        val order = (request["lessonOrder"] as Int)
-        val xp = (request["requiredXp"] as Int)
+        val order = (request["lessonOrder"] as Number).toInt()
+        val xp = (request["requiredXp"] as Number).toInt()
 
-        val unit = unitRepository.findById(unitId).orElseThrow()
+        val unit = unitRepository.findById(unitId)
+            .orElseThrow { RuntimeException("Unidad no encontrada") }
+
         val lesson = LessonEntity(title = title, lessonOrder = order, requiredXp = xp, unit = unit)
         return ResponseEntity.ok(lessonRepository.save(lesson))
     }
 
     @PutMapping("/lessons/{id}")
     fun updateLesson(@PathVariable id: UUID, @RequestBody request: Map<String, Any>): ResponseEntity<LessonEntity> {
-        val lesson = lessonRepository.findById(id).orElseThrow { RuntimeException("Lección no encontrada") }
+        val lesson = lessonRepository.findById(id)
+            .orElseThrow { RuntimeException("Lección no encontrada") }
+
         val newTitle = request["title"] as String
         val newOrder = (request["lessonOrder"] as Number).toInt()
+
         val updatedLesson = lesson.copy(title = newTitle, lessonOrder = newOrder)
         return ResponseEntity.ok(lessonRepository.save(updatedLesson))
     }
@@ -76,9 +96,13 @@ class TeacherContentController(
         return ResponseEntity.ok().build()
     }
 
-    // --- PREGUNTAS ---
+    // ==========================================
+    // 3. GESTIÓN DE PREGUNTAS (GAMIFICADAS)
+    // ==========================================
+
     @GetMapping("/lessons/{lessonId}/questions")
     fun getQuestionsByLesson(@PathVariable lessonId: UUID): ResponseEntity<List<QuestionEntity>> {
+        // En una implementación real se recomienda un método en el repositorio 'findByLessonId'
         val questions = questionRepository.findAll().filter { it.lesson.id == lessonId }
         return ResponseEntity.ok(questions)
     }
@@ -89,11 +113,18 @@ class TeacherContentController(
         val typeId = request["questionTypeId"] as String
         val textSource = request["textSource"] as String
         val textTarget = request["textTarget"] as String
+        @Suppress("UNCHECKED_CAST")
         val options = request["options"] as List<String>
 
-        val lesson = lessonRepository.findById(lessonId).orElseThrow()
+        // Nuevos campos para soportar Listening, Speaking y otras categorías
+        val category = (request["category"] as? String) ?: "GRAMMAR"
+        val audioUrl = request["audioUrl"] as? String
+
+        val lesson = lessonRepository.findById(lessonId)
+            .orElseThrow { RuntimeException("Lección no encontrada") }
+
         val type = questionTypeRepository.findByTypeName(typeId)
-            ?: throw RuntimeException("Tipo de pregunta inválido")
+            ?: throw RuntimeException("Tipo de pregunta inválido: $typeId")
 
         val question = QuestionEntity(
             textSource = textSource,
@@ -101,6 +132,8 @@ class TeacherContentController(
             options = options,
             lesson = lesson,
             questionType = type,
+            category = category,
+            audioUrl = audioUrl,
             difficultyScore = BigDecimal.ONE
         )
         return ResponseEntity.ok(questionRepository.save(question))
@@ -108,15 +141,16 @@ class TeacherContentController(
 
     @PutMapping("/questions/{id}")
     fun updateQuestion(@PathVariable id: UUID, @RequestBody request: Map<String, Any>): ResponseEntity<QuestionEntity> {
-        val question = questionRepository.findById(id).orElseThrow { RuntimeException("Pregunta no encontrada") }
-        val newTextSource = request["textSource"] as String
-        val newTextTarget = request["textTarget"] as String
-        val newOptions = request["options"] as List<String>
+        val question = questionRepository.findById(id)
+            .orElseThrow { RuntimeException("Pregunta no encontrada") }
 
+        @Suppress("UNCHECKED_CAST")
         val updatedQuestion = question.copy(
-            textSource = newTextSource,
-            textTarget = newTextTarget,
-            options = newOptions
+            textSource = request["textSource"] as String,
+            textTarget = request["textTarget"] as String,
+            options = request["options"] as List<String>,
+            category = (request["category"] as? String) ?: question.category,
+            audioUrl = (request["audioUrl"] as? String) ?: question.audioUrl
         )
         return ResponseEntity.ok(questionRepository.save(updatedQuestion))
     }

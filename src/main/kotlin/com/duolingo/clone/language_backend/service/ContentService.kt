@@ -58,7 +58,7 @@ class ContentService(
             textSource = request.textSource,
             textTarget = request.textTarget,
             options = request.options,
-            audio_url = request.audioUrl,
+            audioUrl = request.audioUrl,
             hintJson = request.hintJson,
             difficultyScore = request.difficultyScore
         )

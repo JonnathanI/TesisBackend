@@ -21,13 +21,14 @@ class AuthController(
     @PostMapping("/register")
     fun register(@RequestBody request: RegisterRequest): ResponseEntity<AuthResponse> {
         try {
+            println("Recibido registro para: ${request.email} con código: ${request.registrationCode}")
             // --- ¡NUEVA LÓGICA DE ROLES! ---
             val user = if (request.adminCode == ADMIN_SECRET_CODE) {
                 // Si el código es correcto, llama a createAdminUser
                 userService.createAdminUser(request.email, request.password, request.fullName)
             } else {
                 // Si es nulo o incorrecto, crea un estudiante
-                userService.registerStudent(request.email, request.password, request.fullName)
+                userService.registerStudent(request.email, request.password, request.fullName,request.registrationCode)
             }
             // --- ---
 

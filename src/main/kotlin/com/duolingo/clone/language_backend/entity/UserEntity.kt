@@ -20,12 +20,12 @@ data class UserEntity(
     val email: String,
 
     @Column(name = "password_hash", nullable = false)
-    var passwordHash: String, // <-- Corregido el nombre (Clash)
+    var passwordHash: String,
 
     @Enumerated(EnumType.STRING)
     val role: Role = Role.STUDENT,
 
-    var xpTotal: Long = 0, // Tipo Long para XP
+    var xpTotal: Long = 0,
     var currentStreak: Int = 0,
     var lastLessonDate: LocalDateTime? = null,
 
@@ -36,23 +36,23 @@ data class UserEntity(
     @Column(columnDefinition = "TEXT")
     var avatarData: String? = null,
 
-    // Campo que estabas usando en UserController
-    val createdAt: LocalDateTime = LocalDateTime.now(), // Asumo que usas 'createdAt'
+    val createdAt: Instant? = null,
     @Column(name = "last_practice_date")
-var lastPracticeDate: Instant? = null, // <-- ¡AGREGADO!
+var lastPracticeDate: Instant? = null,
 
     @Column(name = "last_heart_refill_time")
-var lastHeartRefillTime: Instant? = null, // <-- ¡AGREGADO!
+var lastHeartRefillTime: Instant? = null,
+
+    val isActive: Boolean = false,
 
 ) : UserDetails {
 
-    // Implementación de UserDetails
     override fun getAuthorities(): Collection<GrantedAuthority> {
         return listOf(SimpleGrantedAuthority(role.name))
     }
 
     override fun getPassword(): String {
-        return this.passwordHash // Retorna el campo renombrado
+        return this.passwordHash
     }
 
     override fun getUsername(): String {
@@ -63,4 +63,5 @@ var lastHeartRefillTime: Instant? = null, // <-- ¡AGREGADO!
     override fun isAccountNonLocked(): Boolean = true
     override fun isCredentialsNonExpired(): Boolean = true
     override fun isEnabled(): Boolean = true
+
 }

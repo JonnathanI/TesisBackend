@@ -8,5 +8,8 @@ data class StudentDataDTO(
     val fullName: String,
     val email: String,
     val xpTotal: Long,
-    val currentStreak: Int
+    val currentStreak: Int,
+    val heartsCount:Int,
+    val lingotsCount: Int,
+    val isActive: Boolean
 )
