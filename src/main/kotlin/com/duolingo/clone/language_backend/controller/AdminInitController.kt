@@ -18,7 +18,7 @@ class AdminInitController(
     @PostMapping("/admin")
     fun createAdmin(@RequestBody request: RegisterRequest): ResponseEntity<AuthResponse> {
         try {
-            val user = userService.createAdminUser(request.email, request.password, request.fullName)
+            val user = userService.createAdminUser(request.email, request.password, request.fullName, request.cedula)
 
             val token = jwtService.generateToken(user)
 

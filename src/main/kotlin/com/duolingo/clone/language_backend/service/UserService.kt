@@ -22,45 +22,61 @@ class UserService(
     private val registrationCodeRepository: RegistrationCodeRepository
 ) {
 
-    private val EMAIL_REGEX = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")
-    private val NAME_REGEX = Pattern.compile("^[a-zA-ZáéíóúÁÉÍÓÚñÑ]+( [a-zA-ZáéíóúÁÉÍÓÚñÑ]+)*$")
+    private val EMAIL_REGEX =
+        Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")
 
-    /**
-     * Crea un nuevo usuario con validación de código de registro para estudiantes.
-     */
+    private val NAME_REGEX =
+        Pattern.compile("^[a-zA-ZáéíóúÁÉÍÓÚñÑ]+( [a-zA-ZáéíóúÁÉÍÓÚñÑ]+)*$")
+
+    private val CEDULA_REGEX = Pattern.compile("^\\d{10}$")
+
     fun createNewUser(
         email: String,
         password: String,
         fullName: String,
         role: Role,
-        registrationCode: String? = null
+        cedula: String,
+        registrationCode: String? = null,
+        registeredBy: UserEntity? = null
     ): UserEntity {
+
         val cleanEmail = email.lowercase().trim()
         val cleanName = fullName.trim()
+        val cleanCedula = cedula.trim()
 
-        // 1. Validaciones de formato
-        require(EMAIL_REGEX.matcher(cleanEmail).matches()) { "Email inválido." }
-        require(NAME_REGEX.matcher(cleanName).matches()) { "Nombre contiene caracteres especiales." }
-
-        if (userRepository.findByEmail(cleanEmail) != null) {
-            throw RuntimeException("El correo ya se encuentra registrado.")
+        require(EMAIL_REGEX.matcher(cleanEmail).matches()) { "Email inválido" }
+        require(NAME_REGEX.matcher(cleanName).matches()) {
+            "El nombre no debe contener números ni símbolos"
+        }
+        require(CEDULA_REGEX.matcher(cleanCedula).matches()) {
+            "La cédula debe contener exactamente 10 números"
         }
 
-        // 2. Validación de código de registro para Estudiantes
+        if (userRepository.findByEmail(cleanEmail) != null) {
+            throw RuntimeException("El correo ya está registrado")
+        }
+        if (userRepository.findByCedula(cleanCedula) != null) {
+            throw RuntimeException("La cédula ya está registrada")
+        }
+
         if (role == Role.STUDENT) {
             if (registrationCode.isNullOrBlank()) {
-                throw RuntimeException("El código de registro es obligatorio para estudiantes.")
+                throw RuntimeException("El código de registro es obligatorio")
             }
 
-            val codeEntity = registrationCodeRepository.findByCode(registrationCode)
-                .orElseThrow { RuntimeException("Código de registro inválido.") }
+            val codeEntity = registrationCodeRepository
+                .findByCode(registrationCode)
+                .orElseThrow { RuntimeException("Código inválido") }
 
             if (codeEntity.expiresAt.isBefore(Instant.now())) {
-                throw RuntimeException("Este código ya ha sido utilizado.")
+                throw RuntimeException("El código ha expirado")
             }
 
-            // Marcamos el código como usado (invalidación)
-            codeEntity.usedCount += 1
+            if (codeEntity.usedCount >= codeEntity.maxUses) {
+                throw RuntimeException("El código ya alcanzó su límite")
+            }
+
+            codeEntity.usedCount++
             registrationCodeRepository.save(codeEntity)
         }
 
@@ -69,39 +85,71 @@ class UserService(
             passwordHash = passwordEncoder.encode(password),
             fullName = cleanName,
             role = role,
+            cedula = cleanCedula,
+            registeredById = registeredBy?.id,
+            registeredByName = registeredBy?.fullName ?: cleanName,
+            registeredByRole = registeredBy?.role ?: role,
+
             xpTotal = 0,
             heartsCount = if (role == Role.STUDENT) 5 else 0,
-            createdAt = Instant.now(), // Se asume que es Instant en la entidad
             currentStreak = 0,
             lingotsCount = 100,
             hasStreakFreeze = false,
             isActive = true,
+            createdAt = Instant.now(),
             lastPracticeDate = Instant.now(),
             lastHeartRefillTime = Instant.now()
         )
+
         return userRepository.save(newUser)
     }
 
-    fun registerStudent(email: String, password: String, fullName: String, code: String?): UserEntity {
-        return createNewUser(email, password, fullName, Role.STUDENT, code)
-    }
+    fun registerStudent(
+        email: String,
+        password: String,
+        fullName: String,
+        cedula: String,
+        code: String
+    ): UserEntity =
+        createNewUser(
+            email = email,
+            password = password,
+            fullName = fullName,
+            role = Role.STUDENT,
+            cedula = cedula,
+            registrationCode = code
+        )
 
-    fun createAdminUser(email: String, password: String, fullName: String): UserEntity {
-        return createNewUser(email, password, fullName, Role.ADMIN, null)
-    }
+
+    fun createAdminUser(
+        email: String,
+        password: String,
+        fullName: String,
+        cedula: String
+    ): UserEntity =
+        createNewUser(
+            email = email,
+            password = password,
+            fullName = fullName,
+            role = Role.ADMIN,
+            cedula = cedula
+        )
+
+
 
     fun generateRegistrationCode(
         teacherId: UUID,
         maxUses: Int = 20
     ): String {
 
-        require(maxUses > 0) { "El número de cupos debe ser mayor a 0" }
-
-        val code = "AULA-" + UUID.randomUUID().toString().substring(0, 6).uppercase()
+        val code = "AULA-" + UUID.randomUUID()
+            .toString()
+            .substring(0, 6)
+            .uppercase()
 
         val entity = RegistrationCodeEntity(
             code = code,
-            expiresAt = Instant.now().plusSeconds(60 * 60), // ⏱️ 1 hora
+            expiresAt = Instant.now().plusSeconds(3600),
             maxUses = maxUses,
             usedCount = 0,
             createdByTeacherId = teacherId
@@ -111,53 +159,57 @@ class UserService(
         return code
     }
 
+    fun bulkRegisterStudents(
+        request: BulkRegisterRequest,
+        registeredByUserId: UUID
+    ): BulkRegisterResponse {
 
+        val registeredBy = userRepository.findById(registeredByUserId)
+            .orElseThrow { RuntimeException("Usuario registrador no encontrado") }
 
-    fun getUserProfile(userId: UUID): UserProfileResponse {
-        val user = userRepository.findById(userId).orElseThrow { RuntimeException("User not found") }
-
-        // CORRECCIÓN: Para formatear un Instant, hay que convertirlo a ZonedDateTime
-        val formatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale("es", "ES"))
-        val joinedDate = user.createdAt?.let {
-            ZonedDateTime.ofInstant(it, ZoneId.systemDefault()).format(formatter)
-        } ?: "N/A"
-
-        return UserProfileResponse(
-            fullName = user.fullName,
-            username = user.email.split("@")[0],
-            joinedAt = Instant.now(), // Ahora pasamos el String formateado correctamente
-            totalXp = user.xpTotal,
-            currentStreak = user.currentStreak,
-            lingots = user.lingotsCount,
-            heartsCount = user.heartsCount,
-            league = "Bronce",
-            avatarData = user.avatarData
-        )
-    }
-
-    fun bulkRegisterStudents(request: BulkRegisterRequest): BulkRegisterResponse {
         var successCount = 0
         var failureCount = 0
         val errors = mutableListOf<BulkRegistrationError>()
 
-        request.students.forEach { studentItem ->
+        request.students.forEach { student ->
             try {
-                // En registro masivo por el profesor, no pedimos código de validación
-                createNewUser(studentItem.email, studentItem.password, studentItem.fullName, Role.STUDENT, null)
+                createNewUser(
+                    email = student.email,
+                    password = student.password,
+                    fullName = student.fullName,
+                    role = Role.STUDENT,
+                    registrationCode = request.registrationCode,
+                    registeredBy = registeredBy,
+                    cedula = student.cedula,
+                )
                 successCount++
             } catch (e: Exception) {
                 failureCount++
-                errors.add(BulkRegistrationError(studentItem.email, e.message ?: "Error"))
+                errors.add(
+                    BulkRegistrationError(
+                        student.email,
+                        e.message ?: "Error desconocido"
+                    )
+                )
             }
         }
-        return BulkRegisterResponse(request.students.size, successCount, failureCount, errors)
+
+        return BulkRegisterResponse(
+            totalProcessed = request.students.size,
+            successCount = successCount,
+            failureCount = failureCount,
+            errors = errors
+        )
+    }
+    fun getUserByEmail(email: String): UserEntity? {
+        return userRepository.findByEmail(email.lowercase().trim())
     }
 
-    fun getUserByEmail(email: String) = userRepository.findByEmail(email)
     fun verifyCredentials(email: String, password: String): Boolean {
-        val user = userRepository.findByEmail(email)
-        return user != null && passwordEncoder.matches(password, user.passwordHash)
+        val user = getUserByEmail(email) ?: return false
+        return passwordEncoder.matches(password, user.passwordHash)
     }
+
     fun getAllStudents(): List<StudentDataDTO> {
         return userRepository.findByRole(Role.STUDENT).map { user ->
             StudentDataDTO(
@@ -172,4 +224,5 @@ class UserService(
             )
         }
     }
+
 }

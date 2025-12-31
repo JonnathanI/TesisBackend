@@ -13,4 +13,5 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
     fun findByRole(role: Role): List<UserEntity>
 
     fun findTop5ByOrderByXpTotalDesc(): List<UserEntity>
+    fun findByCedula(cedula: String): UserEntity?
 }

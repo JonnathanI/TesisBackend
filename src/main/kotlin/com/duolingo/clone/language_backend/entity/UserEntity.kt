@@ -45,6 +45,18 @@ var lastHeartRefillTime: Instant? = null,
 
     val isActive: Boolean = false,
 
+    // 👇 NUEVO
+    var registeredById: UUID?,
+
+    // 👇 NUEVO
+    var registeredByName: String,
+
+    @Enumerated(EnumType.STRING)
+    var registeredByRole: Role,
+
+    @Column(nullable = false, unique = true, length = 10)
+    var cedula: String,
+
 ) : UserDetails {
 
     override fun getAuthorities(): Collection<GrantedAuthority> {

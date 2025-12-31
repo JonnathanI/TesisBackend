@@ -6,6 +6,7 @@ data class RegisterRequest(
     val email: String,
     val password: String,
     val fullName: String,
+    val cedula: String,
     // Nuevo campo opcional para el código de administrador
     val adminCode: String? = null,
     @JsonProperty("registrationCode")

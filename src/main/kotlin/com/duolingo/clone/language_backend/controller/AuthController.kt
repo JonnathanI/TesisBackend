@@ -5,7 +5,9 @@ import com.duolingo.clone.language_backend.service.UserService
 import com.duolingo.clone.language_backend.service.JwtService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
+import java.util.*
 
 @RestController
 @RequestMapping("/api/auth")
@@ -24,12 +26,22 @@ class AuthController(
             println("Recibido registro para: ${request.email} con código: ${request.registrationCode}")
             // --- ¡NUEVA LÓGICA DE ROLES! ---
             val user = if (request.adminCode == ADMIN_SECRET_CODE) {
-                // Si el código es correcto, llama a createAdminUser
-                userService.createAdminUser(request.email, request.password, request.fullName)
+                userService.createAdminUser(
+                    request.email,
+                    request.password,
+                    request.fullName,
+                    request.cedula
+                )
             } else {
-                // Si es nulo o incorrecto, crea un estudiante
-                userService.registerStudent(request.email, request.password, request.fullName,request.registrationCode)
+                userService.registerStudent(
+                    request.email,
+                    request.password,
+                    request.fullName,
+                    request.cedula,
+                    request.registrationCode!!
+                )
             }
+
             // --- ---
 
             val token = jwtService.generateToken(user)
@@ -49,14 +61,20 @@ class AuthController(
     }
 
 
-    // === NUEVO ENDPOINT PARA CARGA MASIVA DE ALUMNOS ===
-    // Este método permite a la empresa registrar a todos los alumnos de una vez
     @PostMapping("/register-bulk")
-    fun registerBulk(@RequestBody request: BulkRegisterRequest): ResponseEntity<BulkRegisterResponse> {
-        // Llamamos al servicio que procesa la lista uno por uno
-        val result = userService.bulkRegisterStudents(request)
+    fun registerBulk(
+        @AuthenticationPrincipal userId: String,
+        @RequestBody request: BulkRegisterRequest
+    ): ResponseEntity<BulkRegisterResponse> {
+
+        val result = userService.bulkRegisterStudents(
+            request = request,
+            registeredByUserId = UUID.fromString(userId)
+        )
+
         return ResponseEntity.ok(result)
     }
+
 
 
     // POST /api/auth/login
