@@ -205,6 +205,9 @@ class UserService(
 
     fun verifyCredentials(email: String, password: String): Boolean {
         val user = getUserByEmail(email) ?: return false
+        if (!user.isActive) {
+            throw RuntimeException("Usuario desactivado")
+        }
         return passwordEncoder.matches(password, user.passwordHash)
     }
 

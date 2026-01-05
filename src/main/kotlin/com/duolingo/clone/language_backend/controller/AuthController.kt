@@ -77,21 +77,30 @@ class AuthController(
 
 
 
-    // POST /api/auth/login
     @PostMapping("/login")
     fun login(@RequestBody request: LoginRequest): ResponseEntity<AuthResponse> {
-        if (userService.verifyCredentials(request.email, request.password)) {
-            val user = userService.getUserByEmail(request.email)!!
-            val token = jwtService.generateToken(user)
+        return try {
+            if (userService.verifyCredentials(request.email, request.password)) {
+                val user = userService.getUserByEmail(request.email)!!
 
-            val response = AuthResponse(
-                token = token,
-                userId = user.id.toString(),
-                role = user.role.name,
-                fullName = user.fullName
-            )
-            return ResponseEntity.ok(response)
+                val token = jwtService.generateToken(user)
+
+                ResponseEntity.ok(
+                    AuthResponse(
+                        token = token,
+                        userId = user.id.toString(),
+                        role = user.role.name,
+                        fullName = user.fullName
+                    )
+                )
+            } else {
+                ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+            }
+        } catch (e: RuntimeException) {
+            ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(null)
         }
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
     }
+
 }

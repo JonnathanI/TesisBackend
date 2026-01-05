@@ -23,49 +23,52 @@ class JwtAuthenticationFilter(
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
-        // 1. Obtener el encabezado de autorización
         val authHeader = request.getHeader("Authorization")
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response)
             return
         }
 
-        // 2. Extraer el token y el ID de usuario
         val jwt = authHeader.substring(7)
 
-        // Usamos un bloque try-catch para manejar tokens inválidos
         try {
             val userId = jwtService.extractUserId(jwt)
 
-            // 3. Verificar si el usuario ya está autenticado
-            if (userId.isNotEmpty() && SecurityContextHolder.getContext().authentication == null) {
-
-                // 4. Cargar el UserEntity desde el DB (conviertiendo el String UUID a UUID real)
+            if (SecurityContextHolder.getContext().authentication == null) {
                 val user = userRepository.findById(UUID.fromString(userId)).orElse(null)
 
-                // 5. Validar el token contra el usuario
                 if (user != null && jwtService.isTokenValid(jwt, user)) {
 
-                    // Crea la lista de autoridades (roles)
+                    if (!user.isActive) {
+                        response.status = HttpServletResponse.SC_UNAUTHORIZED
+                        response.writer.write("Usuario desactivado")
+                        return
+                    }
+
                     val authorities = listOf(SimpleGrantedAuthority(user.role.name))
 
-                    // 6. Crear el objeto de autenticación
                     val authToken = UsernamePasswordAuthenticationToken(
-                        user.id.toString(), // Principal: el ID del usuario
+                        user.id.toString(),
                         null,
-                        authorities // Roles del usuario
+                        authorities
                     )
 
-                    // 7. Establecer la autenticación en el contexto de seguridad
                     SecurityContextHolder.getContext().authentication = authToken
                 }
+
             }
+
+        } catch (e: io.jsonwebtoken.ExpiredJwtException) {
+            response.status = HttpServletResponse.SC_UNAUTHORIZED
+            response.writer.write("Token expirado")
+            return
         } catch (e: Exception) {
-            // Logear o manejar errores de token (expiración, firma inválida)
-            logger.warn("JWT inválido o expirado: ${e.message}")
-            // No establecemos el contexto, la petición fallará con 403/401
+            response.status = HttpServletResponse.SC_UNAUTHORIZED
+            response.writer.write("Token inválido")
+            return
         }
 
         filterChain.doFilter(request, response)
     }
+
 }

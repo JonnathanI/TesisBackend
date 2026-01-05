@@ -43,7 +43,8 @@ var lastPracticeDate: Instant? = null,
     @Column(name = "last_heart_refill_time")
 var lastHeartRefillTime: Instant? = null,
 
-    val isActive: Boolean = false,
+    @Column(nullable = false)
+    var isActive: Boolean = true,
 
     // 👇 NUEVO
     var registeredById: UUID?,
@@ -74,6 +75,6 @@ var lastHeartRefillTime: Instant? = null,
     override fun isAccountNonExpired(): Boolean = true
     override fun isAccountNonLocked(): Boolean = true
     override fun isCredentialsNonExpired(): Boolean = true
-    override fun isEnabled(): Boolean = true
+    override fun isEnabled(): Boolean = isActive
 
 }
