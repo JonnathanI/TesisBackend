@@ -28,6 +28,42 @@ class UserService(
 
     private val CEDULA_REGEX = Pattern.compile("^\\d{10}$")
 
+    private fun validatePassword(password: String) {
+        if (password.length < 8) {
+            throw IllegalArgumentException("Contraseña muy débil: mínimo 8 caracteres")
+        }
+
+        val hasUpper = password.any { it.isUpperCase() }
+        val hasLower = password.any { it.isLowerCase() }
+        val hasDigit = password.any { it.isDigit() }
+        val hasSpecial = password.any { !it.isLetterOrDigit() }
+
+        when {
+            password.length >= 12 && hasUpper && hasLower && hasDigit && hasSpecial -> {
+                // 🔒 Muy fuerte → OK
+                return
+            }
+
+            password.length >= 10 && hasUpper && hasLower && hasDigit -> {
+                // ✅ Fuerte → OK
+                return
+            }
+
+            password.length >= 8 && hasLower && hasDigit -> {
+                throw IllegalArgumentException(
+                    "Contraseña media: agregue mayúsculas para mayor seguridad"
+                )
+            }
+
+            else -> {
+                throw IllegalArgumentException(
+                    "Contraseña débil: use mayúsculas, números y símbolos"
+                )
+            }
+        }
+    }
+
+
     fun createNewUser(
         email: String,
         password: String,
@@ -37,7 +73,7 @@ class UserService(
         registrationCode: String? = null,
         registeredBy: UserEntity? = null
     ): UserEntity {
-
+        validatePassword(password)
         val cleanEmail = email.lowercase().trim()
         val cleanName = fullName.trim()
         val cleanCedula = cedula.trim()

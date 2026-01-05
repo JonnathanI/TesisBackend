@@ -78,29 +78,56 @@ class AuthController(
 
 
     @PostMapping("/login")
-    fun login(@RequestBody request: LoginRequest): ResponseEntity<AuthResponse> {
-        return try {
-            if (userService.verifyCredentials(request.email, request.password)) {
-                val user = userService.getUserByEmail(request.email)!!
+    fun login(@RequestBody request: LoginRequest): ResponseEntity<Any> {
 
-                val token = jwtService.generateToken(user)
-
-                ResponseEntity.ok(
-                    AuthResponse(
-                        token = token,
-                        userId = user.id.toString(),
-                        role = user.role.name,
-                        fullName = user.fullName
-                    )
-                )
-            } else {
-                ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
-            }
-        } catch (e: RuntimeException) {
-            ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(null)
+        // 1️⃣ Campos obligatorios
+        if (request.email.isBlank() || request.password.isBlank()) {
+            return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(mapOf("message" to "Debe llenar todos los campos"))
         }
+
+        // 2️⃣ Formato de correo
+        val emailRegex =
+            Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")
+
+        if (!emailRegex.matches(request.email)) {
+            return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(mapOf("message" to "Formato de correo inválido"))
+        }
+
+        val user = userService.getUserByEmail(request.email)
+            ?: return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(mapOf("message" to "Usuario no registrado"))
+
+        // 3️⃣ Usuario activo
+        if (!user.isActive) {
+            return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(mapOf("message" to "Usuario desactivado"))
+        }
+
+        // 4️⃣ Contraseña incorrecta
+        if (!userService.verifyCredentials(request.email, request.password)) {
+            return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(mapOf("message" to "Contraseña incorrecta"))
+        }
+
+        // 5️⃣ Login exitoso → generar token
+        val token = jwtService.generateToken(user)
+
+        return ResponseEntity.ok(
+            AuthResponse(
+                token = token,
+                userId = user.id.toString(),
+                role = user.role.name,
+                fullName = user.fullName
+            )
+        )
     }
+
 
 }
