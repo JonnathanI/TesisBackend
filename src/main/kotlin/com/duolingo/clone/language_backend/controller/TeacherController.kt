@@ -31,6 +31,7 @@ class TeacherController(private val userService: UserService) {
         val code = userService.generateRegistrationCode(teacherUuid)
 
         return ResponseEntity.ok(mapOf("code" to code))
+
     }
 
 
