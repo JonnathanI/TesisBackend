@@ -23,14 +23,15 @@ class TeacherController(private val userService: UserService) {
 
     @PostMapping("/generate-code")
     fun generateCode(
-        @AuthenticationPrincipal userId: String
+        @AuthenticationPrincipal principal: String
     ): ResponseEntity<Map<String, String>> {
 
-        val teacherUuid = UUID.fromString(userId) // 👈 NO nullable
+        val teacherUuid = UUID.fromString(principal)
 
         val code = userService.generateRegistrationCode(teacherUuid)
 
         return ResponseEntity.ok(mapOf("code" to code))
     }
+
 
 }

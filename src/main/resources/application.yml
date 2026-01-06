@@ -39,4 +39,4 @@ application:
       secret-key: aHRtbC10ZXNpc2R1b2xpbmdvY2xvbmUtdW5pdmVyc2l0YXJpYS1uby11c2FyLWVzdGEtY2xhdmU=
 
       # Tiempo de expiración del token en milisegundos (24 horas)
-      expiration: 86400000
+      expiration: 150000
