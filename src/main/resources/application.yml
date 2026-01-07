@@ -2,41 +2,37 @@ server:
   port: 8081
 
 spring:
-  # ------------------------------------
-  # 1. ⚙️ CONFIGURACIÓN DE BASE DE DATOS (¡FINAL Y CORREGIDA!)
-  # ------------------------------------
   datasource:
-    # URL CORREGIDA: Usando el pooler/host del comando psql y el parámetro 'sslmode=require'
     url: jdbc:postgresql://ep-silent-dust-ahupu26q-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require
-
     username: neondb_owner
-    # ¡CONTRASEÑA CORREGIDA! (Usando la que diste en el comando psql)
     password: npg_nqrvj5skM9Wm
-
     driver-class-name: org.postgresql.Driver
 
-  # 2. Configuración de JPA/Hibernate
   jpa:
     hibernate:
-      # 'create' fuerza la recreación de las tablas, ideal para el primer arranque limpio
       ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
 
-  # 3. Configuración de Flyway
   flyway:
     enabled: false
 
-# ============================================
-# 🔑 CONFIGURACIÓN DE SEGURIDAD JWT
-# ============================================
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: inaguasojonnathan6@gmail.com
+    password: dutxhupaitaajlvy
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 application:
   security:
     jwt:
-      # Clave secreta BASE64
       secret-key: aHRtbC10ZXNpc2R1b2xpbmdvY2xvbmUtdW5pdmVyc2l0YXJpYS1uby11c2FyLWVzdGEtY2xhdmU=
-
-      # Tiempo de expiración del token en milisegundos (24 horas)
       expiration: 150000
