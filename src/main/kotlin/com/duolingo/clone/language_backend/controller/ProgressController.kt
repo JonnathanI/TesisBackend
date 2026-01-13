@@ -74,21 +74,17 @@ class ProgressController(
     }
 
     @GetMapping("/units/{unitId}")
-    fun getUnitProgress(@PathVariable unitId: UUID, request: HttpServletRequest): ResponseEntity<List<LessonProgressDTO>> {
-        // 1. Extraer el ID del usuario del JWT
-        val token = request.getHeader("Authorization")?.substring(7)
-            ?: return ResponseEntity.status(401).build() // Token no encontrado
+    fun getUnitProgress(
+        @AuthenticationPrincipal userId: String,
+        @PathVariable unitId: UUID
+    ): ResponseEntity<List<LessonProgressDTO>> {
 
-        val userIdString = jwtService.extractUserId(token)
-
-        // Necesitas convertir el String (que viene del JWT) a UUID para el service
-        val userId = UUID.fromString(userIdString)
-
-        // 2. Llamar al servicio
-        val progress = progressService.getUnitProgress(unitId, userId)
+        val userUuid = UUID.fromString(userId)
+        val progress = progressService.getUnitProgress(unitId, userUuid)
 
         return ResponseEntity.ok(progress)
     }
+
 
     @GetMapping("/practice/questions")
     fun getPracticeSession(request: HttpServletRequest): ResponseEntity<List<QuestionEntity>> {

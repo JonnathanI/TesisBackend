@@ -1,5 +1,8 @@
 package com.duolingo.clone.language_backend.controller
 
+import com.duolingo.clone.language_backend.dto.CreateCourseDTO
+import com.duolingo.clone.language_backend.dto.QuestionRequest
+import com.duolingo.clone.language_backend.entity.CourseEntity
 import com.duolingo.clone.language_backend.entity.LessonEntity
 import com.duolingo.clone.language_backend.entity.QuestionEntity
 import com.duolingo.clone.language_backend.entity.UnitEntity
@@ -108,36 +111,28 @@ class TeacherContentController(
     }
 
     @PostMapping("/questions")
-    fun createQuestion(@RequestBody request: Map<String, Any>): ResponseEntity<QuestionEntity> {
-        val lessonId = UUID.fromString(request["lessonId"] as String)
-        val typeId = request["questionTypeId"] as String
-        val textSource = request["textSource"] as String
-        val textTarget = request["textTarget"] as String
-        @Suppress("UNCHECKED_CAST")
-        val options = request["options"] as List<String>
+    fun createQuestion(@RequestBody dto: QuestionRequest): ResponseEntity<QuestionEntity> {
 
-        // Nuevos campos para soportar Listening, Speaking y otras categorías
-        val category = (request["category"] as? String) ?: "GRAMMAR"
-        val audioUrl = request["audioUrl"] as? String
-
-        val lesson = lessonRepository.findById(lessonId)
+        val lesson = lessonRepository.findById(dto.lessonId)
             .orElseThrow { RuntimeException("Lección no encontrada") }
 
-        val type = questionTypeRepository.findByTypeName(typeId)
-            ?: throw RuntimeException("Tipo de pregunta inválido: $typeId")
+        val type = questionTypeRepository.findByTypeName(dto.questionTypeId)
+            ?: throw RuntimeException("Tipo de pregunta inválido: ${dto.questionTypeId}")
 
         val question = QuestionEntity(
-            textSource = textSource,
-            textTarget = textTarget,
-            options = options,
+            textSource = dto.textSource,
+            textTarget = dto.textTarget,
+            options = dto.options,
             lesson = lesson,
             questionType = type,
-            category = category,
-            audioUrl = audioUrl,
-            difficultyScore = BigDecimal.ONE
+            category = "GRAMMAR",
+            audioUrl = dto.audioUrl,
+            difficultyScore = dto.difficultyScore
         )
+
         return ResponseEntity.ok(questionRepository.save(question))
     }
+
 
     @PutMapping("/questions/{id}")
     fun updateQuestion(@PathVariable id: UUID, @RequestBody request: Map<String, Any>): ResponseEntity<QuestionEntity> {
@@ -160,4 +155,20 @@ class TeacherContentController(
         questionRepository.deleteById(id)
         return ResponseEntity.ok().build()
     }
+
+    @PostMapping("/courses")
+    fun createCourse(
+        @RequestBody dto: CreateCourseDTO
+    ): ResponseEntity<CourseEntity> {
+
+        val course = CourseEntity(
+            title = dto.title,
+            targetLanguage = dto.targetLanguage,
+            baseLanguage = dto.baseLanguage
+        )
+
+        return ResponseEntity.ok(courseRepository.save(course))
+    }
+
+
 }

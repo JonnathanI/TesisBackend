@@ -323,47 +323,53 @@ class ProgressService(
     }
 
     fun getCourseProgress(courseId: UUID, userId: UUID): List<UnitStatusDTO> {
-        // 1. Obtener todas las unidades del curso ordenadas
+
         val units = unitRepository.findAllByCourseIdOrderByUnitOrderAsc(courseId)
 
-        // 2. Obtener todo el progreso del usuario (para no hacer mil consultas)
         val userProgress = userLessonProgressRepository.findByUserId(userId)
-        // Set de IDs de lecciones completadas para búsqueda rápida
-        val completedLessonIds = userProgress.filter { it.isCompleted }.map { it.lesson.id }.toSet()
+        val completedLessonIds = userProgress
+            .filter { it.isCompleted }
+            .map { it.lesson.id }
+            .toSet()
 
-        val result = mutableListOf<UnitStatusDTO>()
-
-        // La primera unidad SIEMPRE está desbloqueada
         var isPreviousUnitCompleted = true
 
-        for (unit in units) {
-            // Buscar lecciones de esta unidad
-            val lessons = lessonRepository.findAllByUnitIdOrderByLessonOrderAsc(unit.id!!)
+        return units.map { unit ->
 
-            // Una unidad está COMPLETA si tiene lecciones y TODAS están en el set de completadas
-            val isUnitCompleted = if (lessons.isNotEmpty()) {
-                lessons.all { lesson -> completedLessonIds.contains(lesson.id) }
-            } else {
-                false // Si no tiene lecciones, no se puede completar (o podrías poner true si prefieres)
+            val lessons = lessonRepository
+                .findAllByUnitIdOrderByLessonOrderAsc(unit.id!!)
+
+            val lessonDTOs = lessons.map { lesson ->
+                LessonProgressDTO(
+                    id = lesson.id!!,
+                    title = lesson.title,
+                    lessonOrder = lesson.lessonOrder,
+                    requiredXp = lesson.requiredXp,
+                    isCompleted = completedLessonIds.contains(lesson.id),
+                    masteryLevel = 0,
+                    lastPracticed = null
+                )
             }
 
-            // Está BLOQUEADA si la anterior NO se completó
+            val isUnitCompleted =
+                lessons.isNotEmpty() &&
+                        lessons.all { completedLessonIds.contains(it.id) }
+
             val isLocked = !isPreviousUnitCompleted
 
-            result.add(UnitStatusDTO(
+            if (!isUnitCompleted) {
+                isPreviousUnitCompleted = false
+            }
+
+            UnitStatusDTO(
                 id = unit.id!!,
                 title = unit.title,
                 unitOrder = unit.unitOrder,
                 isLocked = isLocked,
-                isCompleted = isUnitCompleted
-            ))
-
-            // Preparar el estado para la siguiente vuelta del bucle
-            if (!isUnitCompleted) {
-                isPreviousUnitCompleted = false
-            }
+                isCompleted = isUnitCompleted,
+                lessons = lessonDTOs
+            )
         }
-
-        return result
     }
+
 }

@@ -35,4 +35,4 @@ application:
   security:
     jwt:
       secret-key: aHRtbC10ZXNpc2R1b2xpbmdvY2xvbmUtdW5pdmVyc2l0YXJpYS1uby11c2FyLWVzdGEtY2xhdmU=
-      expiration: 150000
+      expiration: 900000

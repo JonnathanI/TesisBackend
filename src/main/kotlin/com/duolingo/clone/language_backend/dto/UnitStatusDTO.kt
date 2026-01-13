@@ -7,5 +7,6 @@ data class UnitStatusDTO(
     val title: String,
     val unitOrder: Int,
     val isLocked: Boolean,
-    val isCompleted: Boolean
+    val isCompleted: Boolean,
+    val lessons: List<LessonProgressDTO>
 )
