@@ -43,4 +43,11 @@ class CourseService(
         )
         return courseRepository.save(courseToUpdate)
     }
+
+    fun deleteCourse(id: UUID) {
+        if (!courseRepository.existsById(id)) {
+            throw NoSuchElementException("Curso no encontrado con ID: $id")
+        }
+        courseRepository.deleteById(id)
+    }
 }

@@ -29,6 +29,12 @@ class TeacherContentController(
     // ==========================================
     // 1. GESTIÓN DE UNIDADES
     // ==========================================
+    @GetMapping("/units")
+    fun getAllUnits(): ResponseEntity<List<UnitEntity>> {
+        return ResponseEntity.ok(unitRepository.findAll())
+    }
+
+
 
     @PostMapping("/units")
     fun createUnit(@RequestBody request: Map<String, Any>): ResponseEntity<UnitEntity> {

@@ -109,8 +109,18 @@ class ProgressService(
         val question = questionRepository.findById(submission.questionId)
             .orElseThrow { NoSuchElementException("Pregunta no encontrada.") }
 
-        val isCorrect = question.textTarget.equals(submission.userAnswer, ignoreCase = true)
+        // 1. Limpieza de nulos y espacios (Evita el error que tenías)
+        val cleanUserAnswer = submission.userAnswer?.trim() ?: ""
+        val cleanTargetAnswer = question.textTarget?.trim() ?: ""
 
+        // 2. Limpieza de signos de puntuación (Ideal para SPEAKING y errores de dedo)
+        val finalTarget = cleanTargetAnswer.replace(Regex("[.?,!]"), "")
+        val finalUser = cleanUserAnswer.replace(Regex("[.?,!]"), "")
+
+        // 3. Comparación lógica
+        val isCorrect = finalTarget.equals(finalUser, ignoreCase = true)
+
+        // 4. Lógica de corazones: SOLO si es incorrecto
         if (!isCorrect) {
             user.heartsCount -= 1
             user.lastHeartRefillTime = Instant.now()
@@ -122,6 +132,7 @@ class ProgressService(
             }
         }
 
+        // 5. Guardar cambios y retornar
         userRepository.save(user)
         return submission.copy(isCorrect = isCorrect)
     }
