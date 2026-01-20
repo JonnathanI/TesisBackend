@@ -11,6 +11,7 @@ data class UserProfileResponse(
     val currentStreak: Int,
     val lingots: Int,
     val heartsCount: Int,
+    val nextHeartRegenTime: Instant?,
     val league: String,
     val avatarData: String?
 )

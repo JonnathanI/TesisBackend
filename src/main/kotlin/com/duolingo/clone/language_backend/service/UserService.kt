@@ -6,6 +6,7 @@ import com.duolingo.clone.language_backend.entity.RegistrationCodeEntity
 import com.duolingo.clone.language_backend.enums.Role
 import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.repository.RegistrationCodeRepository
+import jakarta.transaction.Transactional
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -262,4 +263,60 @@ class UserService(
         }
     }
 
+
+
+    @Transactional
+    fun subtractHeart(userId: UUID): UserEntity {
+        val user = userRepository.findById(userId)
+            .orElseThrow { RuntimeException("Usuario no encontrado") }
+
+        if (user.heartsCount > 0) {
+            user.heartsCount -= 1
+
+            // CORRECCIÓN: Si después de restar no tiene las vidas llenas (4 o menos)
+            // y NO hay un temporizador activo, lo iniciamos ahora.
+            if (user.heartsCount < 5 && user.lastHeartRefillTime == null) {
+                user.lastHeartRefillTime = Instant.now()
+            }
+
+            return userRepository.save(user)
+        }
+        return user
+    }
+
+    fun refreshUserHearts(user: UserEntity): UserEntity {
+        // Si es nulo, le asignamos 'ahora' para evitar errores
+        val lastRefill = user.lastHeartRefillTime ?: Instant.now()
+
+        if (user.heartsCount >= 5) {
+            user.lastHeartRefillTime = Instant.now()
+            return userRepository.save(user)
+        }
+
+        val now = Instant.now()
+        val secondsSinceLastRefill = now.epochSecond - lastRefill.epochSecond
+        val secondsPerHeart = 300 // 5 minutos
+
+        val heartsToRegen = (secondsSinceLastRefill / secondsPerHeart).toInt()
+
+        if (heartsToRegen > 0) {
+            val newHeartCount = (user.heartsCount + heartsToRegen).coerceAtMost(5)
+            user.heartsCount = newHeartCount
+
+            if (newHeartCount >= 5) {
+                user.lastHeartRefillTime = now
+            } else {
+                // Usamos la variable segura 'lastRefill'
+                user.lastHeartRefillTime = lastRefill.plusSeconds((heartsToRegen * secondsPerHeart).toLong())
+            }
+            return userRepository.save(user)
+        }
+
+        return user
+    }
+
+    // Añade esto al final de tu UserService
+    fun getUserById(id: UUID): UserEntity? {
+        return userRepository.findById(id).orElse(null)
+    }
 }
