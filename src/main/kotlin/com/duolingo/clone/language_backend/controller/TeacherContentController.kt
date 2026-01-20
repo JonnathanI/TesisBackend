@@ -122,8 +122,10 @@ class TeacherContentController(
         val lesson = lessonRepository.findById(dto.lessonId)
             .orElseThrow { RuntimeException("Lección no encontrada") }
 
-        val type = questionTypeRepository.findByTypeName(dto.questionTypeId)
-            ?: throw RuntimeException("Tipo de pregunta inválido: ${dto.questionTypeId}")
+        val type = questionTypeRepository.findById(dto.questionTypeId)
+            .orElseThrow {
+                RuntimeException("Tipo de pregunta no encontrado con ID: ${dto.questionTypeId}")
+            }
 
         val question = QuestionEntity(
             textSource = dto.textSource,
@@ -131,13 +133,14 @@ class TeacherContentController(
             options = dto.options,
             lesson = lesson,
             questionType = type,
-            category = "GRAMMAR",
+            category = type.typeName, // ✅ coherente con BD
             audioUrl = dto.audioUrl,
             difficultyScore = dto.difficultyScore
         )
 
         return ResponseEntity.ok(questionRepository.save(question))
     }
+
 
 
     @PutMapping("/questions/{id}")

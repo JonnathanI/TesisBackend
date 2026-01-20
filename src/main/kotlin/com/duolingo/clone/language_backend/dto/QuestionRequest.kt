@@ -5,12 +5,14 @@ import java.util.UUID
 
 data class QuestionRequest(
     val lessonId: UUID,
-    val questionTypeId: String, // Ejemplo: 'TRANSLATION_TO_TARGET'
+
+    // ✅ ID real de la tabla question_types
+    val questionTypeId: UUID,
+
     val textSource: String,
     val textTarget: String? = null,
 
-    // --- ¡CAMPO AÑADIDO! ---
-    val options: List<String> = emptyList(), // <-- AÑADE ESTA LÍNEA
+    val options: List<String> = emptyList(),
 
     val audioUrl: String? = null,
     val hintJson: String? = null,
