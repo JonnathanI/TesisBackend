@@ -12,18 +12,22 @@ class ShopService(private val userRepository: UserRepository) {
 
         when (itemType) {
             "HEART_REFILL" -> {
-                if (user.heartsCount >= 3) throw RuntimeException("Ya tienes las vidas completas.")
+                if (user.heartsCount >= 5) throw RuntimeException("Ya tienes las vidas completas.")
                 if (user.lingotsCount < 50) throw RuntimeException("No tienes suficientes gemas.")
 
                 user.lingotsCount -= 50
-                user.heartsCount = 3 // Rellenar al máximo
+                user.heartsCount = 5 // Rellenar a 5 según el estándar de tu UI
             }
             "STREAK_FREEZE" -> {
-                if (user.hasStreakFreeze) throw RuntimeException("Ya tienes un protector de racha equipado.")
+                if (user.hasStreakFreeze) throw RuntimeException("Ya tienes un protector de racha.")
                 if (user.lingotsCount < 200) throw RuntimeException("No tienes suficientes gemas.")
 
                 user.lingotsCount -= 200
                 user.hasStreakFreeze = true
+            }
+            "DOUBLE_OR_NOTHING" -> {
+                if (user.lingotsCount < 50) throw RuntimeException("No tienes suficientes gemas.")
+                user.lingotsCount -= 50
             }
             else -> throw RuntimeException("Ítem desconocido")
         }

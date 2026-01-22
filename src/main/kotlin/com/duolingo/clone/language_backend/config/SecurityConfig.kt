@@ -55,16 +55,29 @@ class SecurityConfig(
         return http.build()
     }
 
-    // --- CONFIGURACIÓN CORS (Para que React se conecte) ---
     @Bean
     fun corsConfigurationSource(): UrlBasedCorsConfigurationSource {
         val configuration = CorsConfiguration()
 
-        // Ajusta estos puertos a los que use tu React
-        configuration.allowedOrigins = listOf("http://localhost:3000", "http://localhost:5173", "http://localhost:5092")
+        // 1. Asegúrate de que la URL actual de ngrok esté aquí
+        configuration.allowedOrigins = listOf(
+            "http://localhost:3000",
+            "http://192.168.20.207:3000",
+            "https://rex-unantagonised-tommy.ngrok-free.dev"
+        )
 
         configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
-        configuration.allowedHeaders = listOf("*")
+
+        // 2. AGREGAR 'ngrok-skip-browser-warning' A ESTA LISTA
+        configuration.allowedHeaders = listOf(
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "Origin",
+            "X-Requested-With",
+            "ngrok-skip-browser-warning" // <--- Indispensable
+        )
+
         configuration.allowCredentials = true
 
         val source = UrlBasedCorsConfigurationSource()

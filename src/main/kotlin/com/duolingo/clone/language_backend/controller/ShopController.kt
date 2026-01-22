@@ -14,15 +14,16 @@ class ShopController(private val shopService: ShopService) {
     fun buyItem(
         @AuthenticationPrincipal userId: String,
         @RequestBody body: Map<String, String>
-    ): ResponseEntity<Void> {
-        val itemType = body["itemType"] ?: return ResponseEntity.badRequest().build()
-        val id = UUID.fromString(userId)
+    ): ResponseEntity<Any> { // Cambiado a Any para enviar mensajes
+        val itemType = body["itemType"] ?: return ResponseEntity.badRequest().body("Falta itemType")
 
-        try {
+        return try {
+            val id = UUID.fromString(userId)
             shopService.buyItem(id, itemType)
-            return ResponseEntity.ok().build()
+            ResponseEntity.ok().build()
         } catch (e: Exception) {
-            return ResponseEntity.badRequest().build()
+            // Esto te dirá en la consola del navegador cuál fue el error real
+            ResponseEntity.badRequest().body(mapOf("error" to e.message))
         }
     }
 }

@@ -137,6 +137,7 @@ class ProgressService(
         return submission.copy(isCorrect = isCorrect)
     }
 
+    @Transactional
     fun completeLesson(userId: UUID, lessonId: UUID, correctAnswersCount: Int): UserLessonProgressEntity {
         val user = userRepository.findById(userId)
             .orElseThrow { NoSuchElementException("Usuario no encontrado.") }
@@ -147,15 +148,23 @@ class ProgressService(
             .orElseThrow { NoSuchElementException("Lección no encontrada.") }
 
         // 1. Calcular XP y Racha
-        val xpEarned = correctAnswersCount * XP_PER_CORRECT_ANSWER
+        // Multiplicamos por 10 o el valor que desees para que el progreso sea notable
+        val xpEarned = correctAnswersCount * 10L
         user.xpTotal += xpEarned
+
+        // IMPORTANTE: Actualizar la fecha de práctica para que el Controller detecte 'isToday'
+        user.lastPracticeDate = Instant.now()
+
+        // Si tu entidad tiene el campo lastLessonDate, actualízalo también
+        // user.lastLessonDate = LocalDateTime.now()
+
         calculateAndSetStreak(user)
 
-        // 2. Ganancia de Lingots y Registro de Transacción
-        val lingotsEarned = LINGOTS_PER_LESSON
-        user.lingotsCount += lingotsEarned
+        // 2. Ganancia de Lingots
+        user.lingotsCount += LINGOTS_PER_LESSON
 
-        userRepository.save(user) // Guarda todos los cambios (XP, Racha, Lingots, Congelador)
+        // Usamos saveAndFlush para asegurar que Hibernate envíe el UPDATE inmediatamente
+        userRepository.saveAndFlush(user)
 
         // 3. Progreso de la lección
         val progress = userLessonProgressRepository.findByUserIdAndLessonId(userId, lessonId)
@@ -163,9 +172,9 @@ class ProgressService(
 
         progress.isCompleted = true
         progress.lastPracticed = Instant.now()
-        progress.masteryLevel = (progress.masteryLevel ?: 0) + 1 // Incrementa maestría al completar
+        progress.masteryLevel = (progress.masteryLevel ?: 0) + 1
 
-        return userLessonProgressRepository.save(progress)
+        return userLessonProgressRepository.saveAndFlush(progress)
     }
 
     fun getUnitProgress(unitId: UUID, userId: UUID): List<LessonProgressDTO> {
