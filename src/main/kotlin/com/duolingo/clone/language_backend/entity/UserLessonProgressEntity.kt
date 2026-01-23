@@ -10,10 +10,6 @@ import java.util.*
 @Entity
 @Table(name = "user_lesson_progress")
 data class UserLessonProgressEntity(
-
-    // --- ¡CAMBIO IMPORTANTE! ---
-    // 2. 'id: UUID' se elimina.
-    // En su lugar, marcamos 'user' y 'lesson' como las claves primarias.
     @Id
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -24,9 +20,15 @@ data class UserLessonProgressEntity(
     @JoinColumn(name = "lesson_id", nullable = false)
     val lesson: LessonEntity,
 
-    // ... el resto de tus campos están bien ...
     @Column(name = "is_completed", nullable = false)
     var isCompleted: Boolean = false,
+
+    // ✅ CAMBIO CLAVE: Agregamos el signo '?' para que sea nullable en Kotlin
+    @Column(name = "correct_answers", nullable = true)
+    var correctAnswers: Int? = 0,
+
+    @Column(name = "mistakes_count", nullable = true)
+    var mistakesCount: Int? = 0,
 
     @Column(name = "last_practiced")
     var lastPracticed: Instant? = null,

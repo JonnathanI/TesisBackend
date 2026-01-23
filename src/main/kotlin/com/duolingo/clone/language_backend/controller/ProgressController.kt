@@ -64,12 +64,14 @@ class ProgressController(
     fun completeLesson(
         @AuthenticationPrincipal userId: String,
         @PathVariable lessonId: UUID,
-        @RequestParam correct: Int // Número de respuestas correctas
+        @RequestParam correct: Int,    // Número de respuestas correctas
+        @RequestParam mistakes: Int    // ✅ AÑADIMOS ESTO: Número de fallos
     ): ResponseEntity<UserLessonProgressEntity> {
 
         val userUuid = UUID.fromString(userId)
 
-        val progress = progressService.completeLesson(userUuid, lessonId, correct)
+        // Pasamos ambos valores al servicio
+        val progress = progressService.completeLesson(userUuid, lessonId, correct, mistakes)
         return ResponseEntity.ok(progress)
     }
 

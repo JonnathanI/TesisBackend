@@ -6,6 +6,8 @@ import com.duolingo.clone.language_backend.entity.RegistrationCodeEntity
 import com.duolingo.clone.language_backend.enums.Role
 import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.repository.RegistrationCodeRepository
+import com.duolingo.clone.language_backend.repository.UnitRepository
+import com.duolingo.clone.language_backend.repository.UserLessonProgressRepository
 import jakarta.transaction.Transactional
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -18,7 +20,9 @@ import java.util.regex.Pattern
 class UserService(
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
-    private val registrationCodeRepository: RegistrationCodeRepository
+    private val registrationCodeRepository: RegistrationCodeRepository,
+    private val unitRepository: UnitRepository,
+    private val userLessonProgressRepository: UserLessonProgressRepository
 ) {
 
     private val EMAIL_REGEX =
@@ -349,6 +353,41 @@ class UserService(
         } catch (e: Exception) {
             println("ERROR CRÍTICO EN DB: ${e.message}")
             throw RuntimeException("Error al guardar el código en la base de datos: ${e.message}")
+        }
+    }
+
+    // En UserService.kt
+    fun getDetailedProgressForStudent(studentId: UUID): List<UnitProgressDTO> {
+        val units = unitRepository.findAll()
+
+        return units.map { unit ->
+            UnitProgressDTO(
+                id = unit.id!!,
+                title = unit.title,
+                lessons = unit.lessons.map { lesson ->
+
+                    // 1. Buscamos el progreso real del alumno
+                    val progress = userLessonProgressRepository.findByUserIdAndLessonId(studentId, lesson.id!!)
+
+                    // 2. Calculamos el XP: 10 base + (aciertos * 2) solo si terminó
+                    val xpCalculado = if (progress?.isCompleted == true) {
+                        10 + ((progress.correctAnswers ?: 0) * 2)
+                    } else {
+                        0
+                    }
+
+                    // 3. Construimos el DTO con todos los parámetros requeridos
+                    LessonProgressDetailDTO(
+                        id = lesson.id!!,
+                        title = lesson.title,
+                        isCompleted = progress?.isCompleted ?: false,
+                        mistakesCount = progress?.mistakesCount ?: 0,
+                        correctAnswers = progress?.correctAnswers ?: 0,
+                        lastPracticed = null,
+                        xpEarned = xpCalculado // ✅ Aquí pasamos el valor que faltaba
+                    )
+                }
+            )
         }
     }
 }

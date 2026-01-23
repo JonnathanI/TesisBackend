@@ -138,42 +138,21 @@ class ProgressService(
     }
 
     @Transactional
-    fun completeLesson(userId: UUID, lessonId: UUID, correctAnswersCount: Int): UserLessonProgressEntity {
-        val user = userRepository.findById(userId)
-            .orElseThrow { NoSuchElementException("Usuario no encontrado.") }
-
-        checkAndRefillHearts(user)
-
-        val lesson = lessonRepository.findById(lessonId)
-            .orElseThrow { NoSuchElementException("Lección no encontrada.") }
-
-        // 1. Calcular XP y Racha
-        // Multiplicamos por 10 o el valor que desees para que el progreso sea notable
-        val xpEarned = correctAnswersCount * 10L
-        user.xpTotal += xpEarned
-
-        // IMPORTANTE: Actualizar la fecha de práctica para que el Controller detecte 'isToday'
-        user.lastPracticeDate = Instant.now()
-
-        // Si tu entidad tiene el campo lastLessonDate, actualízalo también
-        // user.lastLessonDate = LocalDateTime.now()
-
-        calculateAndSetStreak(user)
-
-        // 2. Ganancia de Lingots
-        user.lingotsCount += LINGOTS_PER_LESSON
-
-        // Usamos saveAndFlush para asegurar que Hibernate envíe el UPDATE inmediatamente
-        userRepository.saveAndFlush(user)
-
-        // 3. Progreso de la lección
+    fun completeLesson(userId: UUID, lessonId: UUID, correct: Int, mistakes: Int): UserLessonProgressEntity {
+        // 1. Buscamos el progreso
         val progress = userLessonProgressRepository.findByUserIdAndLessonId(userId, lessonId)
-            ?: UserLessonProgressEntity(user = user, lesson = lesson)
+            ?: UserLessonProgressEntity(
+                user = userRepository.findById(userId).orElseThrow(),
+                lesson = lessonRepository.findById(lessonId).orElseThrow()
+            )
 
+        // 2. Seteamos los valores
         progress.isCompleted = true
+        progress.correctAnswers = correct
+        progress.mistakesCount = mistakes
         progress.lastPracticed = Instant.now()
-        progress.masteryLevel = (progress.masteryLevel ?: 0) + 1
 
+        // 3. Usamos saveAndFlush para forzar la escritura en disco
         return userLessonProgressRepository.saveAndFlush(progress)
     }
 

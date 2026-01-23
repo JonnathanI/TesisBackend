@@ -4,11 +4,9 @@ import com.duolingo.clone.language_backend.dto.StudentDataDTO
 import com.duolingo.clone.language_backend.service.UserService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 import java.util.*
+
 
 @RestController
 @RequestMapping("/api/teacher") // <--- RUTA BASE: /api/teacher
@@ -33,6 +31,13 @@ class TeacherController(private val userService: UserService) {
         return ResponseEntity.ok(mapOf("code" to code))
 
     }
+    @GetMapping("/students/{studentId}/progress")
+    fun getStudentProgressDetail(@PathVariable studentId: UUID): ResponseEntity<Map<String, Any>> {
+        // Llamamos al método que creamos en el paso anterior
+        val progress = userService.getDetailedProgressForStudent(studentId)
 
+        // Retornamos el mapa con la clave "units" que espera el frontend
+        return ResponseEntity.ok(mapOf("units" to progress))
+    }
 
 }
