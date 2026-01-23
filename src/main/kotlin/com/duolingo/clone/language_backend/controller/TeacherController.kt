@@ -21,7 +21,7 @@ class TeacherController(private val userService: UserService) {
         return ResponseEntity.ok(students)
     }
 
-    @PostMapping("/generate-code")
+    @PostMapping("/generate-classroom-code")
     fun generateCode(
         @AuthenticationPrincipal principal: String
     ): ResponseEntity<Map<String, String>> {
