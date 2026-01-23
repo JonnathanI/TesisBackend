@@ -30,7 +30,7 @@ data class RegistrationCodeEntity(
     var usedCount: Int = 0,
 
     // Profesor que generó el código
-    @Column(name = "created_by_teacher_id", nullable = false)
+    @Column(name = "created_by_teacher_id", nullable = true)
     val createdByTeacherId: UUID? = null,
 
     // Opcional: Relacionar con un curso específico

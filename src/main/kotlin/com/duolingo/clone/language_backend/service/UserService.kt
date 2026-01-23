@@ -41,12 +41,10 @@ class UserService(
 
         when {
             password.length >= 12 && hasUpper && hasLower && hasDigit && hasSpecial -> {
-                // 🔒 Muy fuerte → OK
                 return
             }
 
             password.length >= 10 && hasUpper && hasLower && hasDigit -> {
-                // ✅ Fuerte → OK
                 return
             }
 
@@ -94,7 +92,8 @@ class UserService(
             throw RuntimeException("La cédula ya está registrada")
         }
 
-        if (role == Role.STUDENT) {
+        // --- CORRECCIÓN AQUÍ: Validar código tanto para estudiantes como para profesores con PROF- ---
+        if (role == Role.STUDENT || (role == Role.TEACHER && registrationCode?.startsWith("PROF-") == true)) {
             if (registrationCode.isNullOrBlank()) {
                 throw RuntimeException("El código de registro es obligatorio")
             }
@@ -151,6 +150,23 @@ class UserService(
             password = password,
             fullName = fullName,
             role = Role.STUDENT,
+            cedula = cedula,
+            registrationCode = code
+        )
+
+    // ✅ CORRECCIÓN AÑADIDA: Función que faltaba
+    fun registerTeacher(
+        email: String,
+        password: String,
+        fullName: String,
+        cedula: String,
+        code: String
+    ): UserEntity =
+        createNewUser(
+            email = email,
+            password = password,
+            fullName = fullName,
+            role = Role.TEACHER,
             cedula = cedula,
             registrationCode = code
         )
@@ -273,8 +289,6 @@ class UserService(
         if (user.heartsCount > 0) {
             user.heartsCount -= 1
 
-            // CORRECCIÓN: Si después de restar no tiene las vidas llenas (4 o menos)
-            // y NO hay un temporizador activo, lo iniciamos ahora.
             if (user.heartsCount < 5 && user.lastHeartRefillTime == null) {
                 user.lastHeartRefillTime = Instant.now()
             }
@@ -285,7 +299,6 @@ class UserService(
     }
 
     fun refreshUserHearts(user: UserEntity): UserEntity {
-        // Si es nulo, le asignamos 'ahora' para evitar errores
         val lastRefill = user.lastHeartRefillTime ?: Instant.now()
 
         if (user.heartsCount >= 5) {
@@ -306,7 +319,6 @@ class UserService(
             if (newHeartCount >= 5) {
                 user.lastHeartRefillTime = now
             } else {
-                // Usamos la variable segura 'lastRefill'
                 user.lastHeartRefillTime = lastRefill.plusSeconds((heartsToRegen * secondsPerHeart).toLong())
             }
             return userRepository.save(user)
@@ -315,8 +327,28 @@ class UserService(
         return user
     }
 
-    // Añade esto al final de tu UserService
     fun getUserById(id: UUID): UserEntity? {
         return userRepository.findById(id).orElse(null)
+    }
+
+    fun generateTeacherInviteCode(): String {
+        // Generamos el código con prefijo PROF-
+        val code = "PROF-" + UUID.randomUUID().toString().substring(0, 6).uppercase()
+
+        val entity = RegistrationCodeEntity(
+            code = code,
+            expiresAt = Instant.now().plusSeconds(86400), // 24 horas
+            maxUses = 1,
+            usedCount = 0,
+            createdByTeacherId = null // Importante: null porque lo crea el Admin
+        )
+
+        return try {
+            registrationCodeRepository.save(entity)
+            code // Si guarda bien, retorna el string
+        } catch (e: Exception) {
+            println("ERROR CRÍTICO EN DB: ${e.message}")
+            throw RuntimeException("Error al guardar el código en la base de datos: ${e.message}")
+        }
     }
 }
