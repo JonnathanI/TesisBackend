@@ -5,6 +5,7 @@ import com.duolingo.clone.language_backend.dto.QuestionRequest
 import com.duolingo.clone.language_backend.dto.UnitRequest
 import com.duolingo.clone.language_backend.entity.*
 import com.duolingo.clone.language_backend.repository.*
+import jakarta.transaction.Transactional
 import org.springframework.stereotype.Service
 import java.util.UUID
 import java.util.NoSuchElementException
@@ -91,5 +92,27 @@ class ContentService(
             )
             questionTypeRepository.saveAll(types)
         }
+    }
+
+    // Añade esto a tu ContentService.kt
+
+    @Transactional
+    fun updateQuestion(id: UUID, request: QuestionRequest): QuestionEntity {
+        val question = questionRepository.findById(id)
+            .orElseThrow { NoSuchElementException("No existe la pregunta $id") }
+
+        // Actualizamos el estado de activación
+        question.active = request.active
+
+        // También actualizamos otros campos por si acaso editaste texto
+        question.textSource = request.textSource
+        question.textTarget = request.textTarget
+
+        // Si cambiaste el tipo de pregunta
+        val newType = questionTypeRepository.findById(request.questionTypeId)
+            .orElseThrow { NoSuchElementException("Tipo no encontrado") }
+        question.questionType = newType
+
+        return questionRepository.save(question)
     }
 }

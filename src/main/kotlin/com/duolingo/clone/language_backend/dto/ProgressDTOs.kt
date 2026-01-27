@@ -4,10 +4,6 @@ package com.duolingo.clone.language_backend.dto
 import java.time.LocalDateTime
 import java.util.UUID
 
-data class DetailedStudentProgressDTO(
-    val units: List<UnitProgressDTO>
-)
-
 data class UnitProgressDTO(
     val id: UUID,
     val title: String,
@@ -22,4 +18,14 @@ data class LessonProgressDetailDTO(
     val correctAnswers: Int,
     val lastPracticed: LocalDateTime?,
     val xpEarned: Int
+)
+
+// En el backend (Kotlin)
+data class DetailedStudentProgressDTO(
+    val fullName: String,
+    val username: String,
+    val avatarData: String?,
+    val totalXp: Int,
+    val currentStreak: Int,
+    val units: List<UnitProgressDTO> // Tu lista actual de unidades
 )

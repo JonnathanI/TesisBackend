@@ -143,21 +143,7 @@ class TeacherContentController(
 
 
 
-    @PutMapping("/questions/{id}")
-    fun updateQuestion(@PathVariable id: UUID, @RequestBody request: Map<String, Any>): ResponseEntity<QuestionEntity> {
-        val question = questionRepository.findById(id)
-            .orElseThrow { RuntimeException("Pregunta no encontrada") }
 
-        @Suppress("UNCHECKED_CAST")
-        val updatedQuestion = question.copy(
-            textSource = request["textSource"] as String,
-            textTarget = request["textTarget"] as String,
-            options = request["options"] as List<String>,
-            category = (request["category"] as? String) ?: question.category,
-            audioUrl = (request["audioUrl"] as? String) ?: question.audioUrl
-        )
-        return ResponseEntity.ok(questionRepository.save(updatedQuestion))
-    }
 
     @DeleteMapping("/questions/{id}")
     fun deleteQuestion(@PathVariable id: UUID): ResponseEntity<Void> {
@@ -179,5 +165,26 @@ class TeacherContentController(
         return ResponseEntity.ok(courseRepository.save(course))
     }
 
+    @PutMapping("/questions/{id}")
+    fun updateQuestion(
+        @PathVariable id: UUID,
+        @RequestBody dto: QuestionRequest
+    ): ResponseEntity<QuestionEntity> {
+        val question = questionRepository.findById(id)
+            .orElseThrow { RuntimeException("Pregunta no encontrada") }
 
+        val type = questionTypeRepository.findById(dto.questionTypeId)
+            .orElseThrow { RuntimeException("Tipo de pregunta no encontrado") }
+
+        // Actualización de campos
+        question.textSource = dto.textSource
+        question.textTarget = dto.textTarget
+        question.options = dto.options
+        question.questionType = type
+        question.category = type.typeName
+        question.audioUrl = dto.audioUrl
+        question.active = dto.active // Aquí es donde el ojo de la UI hace efecto
+
+        return ResponseEntity.ok(questionRepository.save(question))
+    }
 }

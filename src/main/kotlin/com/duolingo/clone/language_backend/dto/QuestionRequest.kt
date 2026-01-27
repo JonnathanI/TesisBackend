@@ -16,5 +16,6 @@ data class QuestionRequest(
 
     val audioUrl: String? = null,
     val hintJson: String? = null,
-    val difficultyScore: BigDecimal = BigDecimal("0.5")
+    val difficultyScore: BigDecimal = BigDecimal("0.5"),
+    val active: Boolean = true,
 )

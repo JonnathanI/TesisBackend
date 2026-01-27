@@ -11,5 +11,6 @@ data class StudentDataDTO(
     val currentStreak: Int,
     val heartsCount:Int,
     val lingotsCount: Int,
-    val isActive: Boolean
+    val isActive: Boolean,
+    val avatarData: String? = null
 )

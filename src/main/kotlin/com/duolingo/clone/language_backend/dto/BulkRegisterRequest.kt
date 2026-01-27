@@ -1,7 +1,9 @@
 package com.duolingo.clone.language_backend.dto
 
-// DTO para la solicitud masiva
+import com.duolingo.clone.language_backend.enums.Role // Importa tu Enum Role
+
 data class BulkRegisterRequest(
-    val students: List<BulkUserItem>,
-    val registrationCode: String,
+    val users: List<BulkUserItem>,    // Cambiamos 'students' por 'users' (más genérico)
+    val registrationCode: String,     // Código de aula o código de administrador
+    val roleToAssign: Role            // 👈 NUEVO: STUDENT o TEACHER
 )

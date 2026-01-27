@@ -1,9 +1,6 @@
 package com.duolingo.clone.language_backend.controller
 
-import com.duolingo.clone.language_backend.dto.AvatarUpdateRequest
-import com.duolingo.clone.language_backend.dto.ChallengesResponse
-import com.duolingo.clone.language_backend.dto.LeaderboardEntryDTO
-import com.duolingo.clone.language_backend.dto.UserProfileResponse
+import com.duolingo.clone.language_backend.dto.*
 import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.service.UserService
 import org.springframework.http.ResponseEntity
@@ -154,5 +151,47 @@ class UserController(
                 challengesCompleted = completed
             )
         )
+    }
+
+    @GetMapping("/search")
+    fun search(@RequestParam query: String, @AuthenticationPrincipal userId: String) =
+        userService.searchUsers(query, UUID.fromString(userId))
+
+    @PostMapping("/{followedId}/follow")
+    fun follow(@PathVariable followedId: UUID, @AuthenticationPrincipal userId: String) =
+        userService.followUser(UUID.fromString(userId), followedId)
+
+    @GetMapping("/friends")
+    fun getFriends(@AuthenticationPrincipal userId: String) =
+        userService.getFollowedUsers(UUID.fromString(userId))
+
+    // 1. Ver solicitudes pendientes que me han llegado a MÍ
+    @GetMapping("/friend-requests/pending")
+    fun getPendingRequests(@AuthenticationPrincipal userId: String): ResponseEntity<List<StudentDataDTO>> {
+        val uuid = UUID.fromString(userId)
+        // Necesitarás crear esta función en el userService
+        return ResponseEntity.ok(userService.getPendingRequests(uuid))
+    }
+
+    // 2. ACEPTAR una solicitud de amistad
+    @PostMapping("/friends/accept/{senderId}")
+    fun acceptFriend(
+        @PathVariable senderId: UUID,
+        @AuthenticationPrincipal userId: String
+    ): ResponseEntity<String> {
+        val myId = UUID.fromString(userId)
+        userService.acceptFriendRequest(senderId, myId)
+        return ResponseEntity.ok("Ahora son amigos")
+    }
+
+    // 3. VER EL PROGRESO DE UN AMIGO (Para ver su perfil al hacer clic)
+    @GetMapping("/friends/{friendId}/progress")
+    fun getFriendProgress(
+        @PathVariable friendId: UUID,
+        @AuthenticationPrincipal userId: String
+    ): ResponseEntity<DetailedStudentProgressDTO> { // <--- CAMBIA ESTO
+        // Ahora 'progress' es un objeto DetailedStudentProgressDTO, no una lista
+        val progress = userService.getDetailedProgressForStudent(friendId)
+        return ResponseEntity.ok(progress)
     }
 }

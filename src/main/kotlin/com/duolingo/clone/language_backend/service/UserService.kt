@@ -3,11 +3,9 @@ package com.duolingo.clone.language_backend.service
 import com.duolingo.clone.language_backend.dto.*
 import com.duolingo.clone.language_backend.entity.UserEntity
 import com.duolingo.clone.language_backend.entity.RegistrationCodeEntity
+import com.duolingo.clone.language_backend.entity.UserRelationship
 import com.duolingo.clone.language_backend.enums.Role
-import com.duolingo.clone.language_backend.repository.UserRepository
-import com.duolingo.clone.language_backend.repository.RegistrationCodeRepository
-import com.duolingo.clone.language_backend.repository.UnitRepository
-import com.duolingo.clone.language_backend.repository.UserLessonProgressRepository
+import com.duolingo.clone.language_backend.repository.*
 import jakarta.transaction.Transactional
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -22,7 +20,8 @@ class UserService(
     private val passwordEncoder: PasswordEncoder,
     private val registrationCodeRepository: RegistrationCodeRepository,
     private val unitRepository: UnitRepository,
-    private val userLessonProgressRepository: UserLessonProgressRepository
+    private val userLessonProgressRepository: UserLessonProgressRepository,
+    private val userRelationshipRepository: UserRelationshipRepository
 ) {
 
     private val EMAIL_REGEX =
@@ -76,19 +75,17 @@ class UserService(
         registrationCode: String? = null,
         registeredBy: UserEntity? = null
     ): UserEntity {
+        // 1. Validaciones de formato
         validatePassword(password)
         val cleanEmail = email.lowercase().trim()
         val cleanName = fullName.trim()
         val cleanCedula = cedula.trim()
 
         require(EMAIL_REGEX.matcher(cleanEmail).matches()) { "Email inválido" }
-        require(NAME_REGEX.matcher(cleanName).matches()) {
-            "El nombre no debe contener números ni símbolos"
-        }
-        require(CEDULA_REGEX.matcher(cleanCedula).matches()) {
-            "La cédula debe contener exactamente 10 números"
-        }
+        require(NAME_REGEX.matcher(cleanName).matches()) { "El nombre no debe contener números ni símbolos" }
+        require(CEDULA_REGEX.matcher(cleanCedula).matches()) { "La cédula debe contener exactamente 10 números" }
 
+        // 2. Validaciones de unicidad
         if (userRepository.findByEmail(cleanEmail) != null) {
             throw RuntimeException("El correo ya está registrado")
         }
@@ -96,36 +93,27 @@ class UserService(
             throw RuntimeException("La cédula ya está registrada")
         }
 
-        // --- CORRECCIÓN AQUÍ: Validar código tanto para estudiantes como para profesores con PROF- ---
-        if (role == Role.STUDENT || (role == Role.TEACHER && registrationCode?.startsWith("PROF-") == true)) {
-            if (registrationCode.isNullOrBlank()) {
-                throw RuntimeException("El código de registro es obligatorio")
-            }
+        // 3. Lógica de Códigos de Registro (Estudiantes o Profesores con código PROF-)
+        // Un administrador NO necesita código para registrar a otros,
+        // pero un usuario que se registra solo (auto-registro) SÍ.
+        val isAutoRegistration = registeredBy == null
 
-            val codeEntity = registrationCodeRepository
-                .findByCode(registrationCode)
-                .orElseThrow { RuntimeException("Código inválido") }
-
-            if (codeEntity.expiresAt.isBefore(Instant.now())) {
-                throw RuntimeException("El código ha expirado")
-            }
-
-            if (codeEntity.usedCount >= codeEntity.maxUses) {
-                throw RuntimeException("El código ya alcanzó su límite")
-            }
-
-            codeEntity.usedCount++
-            registrationCodeRepository.save(codeEntity)
+        if (isAutoRegistration || !registrationCode.isNullOrBlank()) {
+            validarYConsumirCodigo(registrationCode, role)
         }
 
+        // 4. Creación de la Entidad
         val newUser = UserEntity(
             email = cleanEmail,
             passwordHash = passwordEncoder.encode(password),
             fullName = cleanName,
             role = role,
             cedula = cleanCedula,
+
+            // AUDITORÍA: Si hay un registrador (Admin), usamos sus datos.
+            // Si no, el usuario se registró a sí mismo.
             registeredById = registeredBy?.id,
-            registeredByName = registeredBy?.fullName ?: cleanName,
+            registeredByName = registeredBy?.fullName ?: "Sistema (Auto-registro)",
             registeredByRole = registeredBy?.role ?: role,
 
             xpTotal = 0,
@@ -140,6 +128,34 @@ class UserService(
         )
 
         return userRepository.save(newUser)
+    }
+
+    /**
+     * Función auxiliar para no ensuciar el flujo principal
+     */
+    private fun validarYConsumirCodigo(registrationCode: String?, role: Role) {
+        // Si es estudiante o un profesor registrándose con código
+        if (role == Role.STUDENT || (role == Role.TEACHER && registrationCode?.startsWith("PROF-") == true)) {
+            if (registrationCode.isNullOrBlank()) {
+                throw RuntimeException("El código de registro es obligatorio para este rol")
+            }
+
+            val codeEntity = registrationCodeRepository
+                .findByCode(registrationCode)
+                .orElseThrow { RuntimeException("Código inválido: $registrationCode") }
+
+            if (codeEntity.expiresAt.isBefore(Instant.now())) {
+                throw RuntimeException("El código $registrationCode ha expirado")
+            }
+
+            if (codeEntity.usedCount >= codeEntity.maxUses) {
+                throw RuntimeException("El código $registrationCode ya alcanzó su límite de usos")
+            }
+
+            // Consumir el código
+            codeEntity.usedCount++
+            registrationCodeRepository.save(codeEntity)
+        }
     }
 
     fun registerStudent(
@@ -214,7 +230,7 @@ class UserService(
         return code
     }
 
-    fun bulkRegisterStudents(
+    fun bulkRegisterUsers( // Renombrado de Students a Users para ser genérico
         request: BulkRegisterRequest,
         registeredByUserId: UUID
     ): BulkRegisterResponse {
@@ -226,36 +242,45 @@ class UserService(
         var failureCount = 0
         val errors = mutableListOf<BulkRegistrationError>()
 
-        request.students.forEach { student ->
+        request.users.forEach { userItem -> // Usamos 'users' del nuevo DTO
             try {
+                // Validamos que el código sea coherente con el rol
+                validateCodeForRole(request.registrationCode, request.roleToAssign)
+
                 createNewUser(
-                    email = student.email,
-                    password = student.password,
-                    fullName = student.fullName,
-                    role = Role.STUDENT,
+                    email = userItem.email,
+                    password = userItem.password ?: "Temporal123!", // Password por defecto si es null
+                    fullName = userItem.fullName,
+                    role = request.roleToAssign, // 👈 Ahora es DINÁMICO
                     registrationCode = request.registrationCode,
-                    registeredBy = registeredBy,
-                    cedula = student.cedula,
+                    registeredBy = registeredBy, // Aquí pasas la entidad completa
+                    cedula = userItem.cedula,
                 )
                 successCount++
             } catch (e: Exception) {
                 failureCount++
-                errors.add(
-                    BulkRegistrationError(
-                        student.email,
-                        e.message ?: "Error desconocido"
-                    )
-                )
+                errors.add(BulkRegistrationError(userItem.email, e.message ?: "Error desconocido"))
             }
         }
 
         return BulkRegisterResponse(
-            totalProcessed = request.students.size,
+            totalProcessed = request.users.size,
             successCount = successCount,
             failureCount = failureCount,
             errors = errors
         )
     }
+
+    // Función auxiliar para seguridad
+    private fun validateCodeForRole(code: String, role: Role) {
+        if (role == Role.STUDENT && !code.startsWith("AULA-")) {
+            throw RuntimeException("Código de aula inválido para estudiantes")
+        }
+        if (role == Role.TEACHER && !code.startsWith("PROF-")) {
+            throw RuntimeException("Código de administrador inválido para profesores")
+        }
+    }
+
     fun getUserByEmail(email: String): UserEntity? {
         return userRepository.findByEmail(email.lowercase().trim())
     }
@@ -357,26 +382,27 @@ class UserService(
     }
 
     // En UserService.kt
-    fun getDetailedProgressForStudent(studentId: UUID): List<UnitProgressDTO> {
+    // Cambia el nombre de la función o su retorno en UserService.kt
+    fun getDetailedProgressForStudent(studentId: UUID): DetailedStudentProgressDTO {
+        // 1. Buscamos al usuario para obtener sus datos personales
+        val user = userRepository.findById(studentId)
+            .orElseThrow { RuntimeException("Usuario no encontrado") }
+
         val units = unitRepository.findAll()
 
-        return units.map { unit ->
+        // 2. Mapeamos las unidades (tu lógica actual)
+        val unitsProgress = units.map { unit ->
             UnitProgressDTO(
                 id = unit.id!!,
                 title = unit.title,
                 lessons = unit.lessons.map { lesson ->
-
-                    // 1. Buscamos el progreso real del alumno
                     val progress = userLessonProgressRepository.findByUserIdAndLessonId(studentId, lesson.id!!)
-
-                    // 2. Calculamos el XP: 10 base + (aciertos * 2) solo si terminó
                     val xpCalculado = if (progress?.isCompleted == true) {
                         10 + ((progress.correctAnswers ?: 0) * 2)
                     } else {
                         0
                     }
 
-                    // 3. Construimos el DTO con todos los parámetros requeridos
                     LessonProgressDetailDTO(
                         id = lesson.id!!,
                         title = lesson.title,
@@ -384,9 +410,120 @@ class UserService(
                         mistakesCount = progress?.mistakesCount ?: 0,
                         correctAnswers = progress?.correctAnswers ?: 0,
                         lastPracticed = null,
-                        xpEarned = xpCalculado // ✅ Aquí pasamos el valor que faltaba
+                        xpEarned = xpCalculado
                     )
                 }
+            )
+        }
+
+        // 3. Retornamos el DTO Completo con los datos del perfil
+        // ... dentro de getDetailedProgressForStudent ...
+
+        return DetailedStudentProgressDTO(
+            fullName = user.fullName,
+            username = user.email.split("@")[0],
+            avatarData = user.avatarData,
+            totalXp = user.xpTotal.toInt(),
+            currentStreak = user.currentStreak.toInt(),
+            units = unitsProgress
+        )
+    }
+
+    // En UserService.kt
+    fun searchUsers(query: String, currentUserId: UUID): List<StudentDataDTO> {
+        return userRepository.searchByNameOrEmail(query)
+            .filter { it.id != currentUserId } // Aquí el "it" ya funcionará
+            .map { user ->
+                StudentDataDTO(
+                    id = user.id!!,
+                    fullName = user.fullName,
+                    email = user.email,
+                    xpTotal = user.xpTotal,
+                    currentStreak = user.currentStreak,
+                    heartsCount = user.heartsCount,
+                    lingotsCount = user.lingotsCount,
+                    isActive = user.isActive,
+                    // ... completar campos del DTO
+                )
+            }
+    }
+
+    @Transactional
+    fun followUser(followerId: UUID, followedId: UUID) {
+        // 1. Evitar seguirse a sí mismo
+        if (followerId == followedId) {
+            throw RuntimeException("No puedes seguirte a ti mismo")
+        }
+
+        // 2. Verificar si ya existe la relación
+        if (userRelationshipRepository.existsByFollowerIdAndFollowedId(followerId, followedId)) {
+            throw RuntimeException("Ya sigues a este usuario")
+        }
+
+        // 3. Buscar las entidades
+        val follower = userRepository.findById(followerId)
+            .orElseThrow { RuntimeException("Seguidor no encontrado") }
+        val followed = userRepository.findById(followedId)
+            .orElseThrow { RuntimeException("Usuario a seguir no encontrado") }
+
+        // 4. Guardar la relación
+        val relationship = UserRelationship(
+            follower = follower,
+            followed = followed
+        )
+
+        userRelationshipRepository.save(relationship)
+    }
+
+    fun getFollowedUsers(userId: UUID): List<StudentDataDTO> {
+        return userRelationshipRepository.findByFollowerId(userId).map { relationship ->
+            val friend = relationship.followed
+            StudentDataDTO(
+                id = friend.id!!,
+                fullName = friend.fullName,
+                email = friend.email,
+                xpTotal = friend.xpTotal,
+                heartsCount = friend.heartsCount,
+                lingotsCount = friend.lingotsCount,
+                currentStreak = friend.currentStreak,
+                isActive = friend.isActive,
+                avatarData = friend.avatarData
+            )
+        }
+    }
+
+    @Transactional
+    fun acceptFriendRequest(senderId: UUID, currentUserId: UUID) {
+        // 1. Buscamos la solicitud pendiente
+        val relationship = userRelationshipRepository.findByFollowerIdAndFollowedId(senderId, currentUserId)
+            ?: throw RuntimeException("No se encontró la solicitud de amistad")
+
+        // 2. Cambiamos el estado a aceptado
+        relationship.status = "ACCEPTED"
+        userRelationshipRepository.save(relationship)
+
+        // 3. CREAMOS LA RELACIÓN INVERSA (Para que ambos se vean como amigos)
+        val inverseRelationship = UserRelationship(
+            follower = relationship.followed, // Yo
+            followed = relationship.follower, // El que me agregó
+            status = "ACCEPTED"
+        )
+        userRelationshipRepository.save(inverseRelationship)
+    }
+
+    fun getPendingRequests(userId: UUID): List<StudentDataDTO> {
+        // Buscamos relaciones donde el usuario actual es el 'followed' y están pendientes
+        return userRelationshipRepository.findByFollowedIdAndStatus(userId, "PENDING").map { rel ->
+            val sender = rel.follower // El que envió la solicitud
+            StudentDataDTO(
+                id = sender.id!!,
+                fullName = sender.fullName,
+                email = sender.email,
+                xpTotal = sender.xpTotal,
+                currentStreak = sender.currentStreak,
+                heartsCount = sender.heartsCount,
+                lingotsCount = sender.lingotsCount,
+                isActive = sender.isActive
             )
         }
     }

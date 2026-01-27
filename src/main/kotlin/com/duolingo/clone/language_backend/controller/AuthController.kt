@@ -145,7 +145,7 @@ class AuthController(
         @AuthenticationPrincipal userId: String,
         @RequestBody request: BulkRegisterRequest
     ): ResponseEntity<BulkRegisterResponse> {
-        val result = userService.bulkRegisterStudents(
+        val result = userService.bulkRegisterUsers(
             request = request,
             registeredByUserId = UUID.fromString(userId)
         )
