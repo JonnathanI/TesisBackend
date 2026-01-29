@@ -112,14 +112,16 @@ class TeacherContentController(
     @GetMapping("/lessons/{lessonId}/questions")
     fun getQuestionsByLesson(@PathVariable lessonId: UUID): ResponseEntity<List<QuestionEntity>> {
         // En una implementación real se recomienda un método en el repositorio 'findByLessonId'
-        val questions = questionRepository.findAll().filter { it.lesson.id == lessonId }
+        val questions = questionRepository.findAll().filter { it.lesson?.id == lessonId }
         return ResponseEntity.ok(questions)
     }
 
     @PostMapping("/questions")
     fun createQuestion(@RequestBody dto: QuestionRequest): ResponseEntity<QuestionEntity> {
 
-        val lesson = lessonRepository.findById(dto.lessonId)
+        val lessonId = dto.lessonId ?: throw RuntimeException("El lessonId es requerido para crear preguntas de lección")
+
+        val lesson = lessonRepository.findById(lessonId)
             .orElseThrow { RuntimeException("Lección no encontrada") }
 
         val type = questionTypeRepository.findById(dto.questionTypeId)

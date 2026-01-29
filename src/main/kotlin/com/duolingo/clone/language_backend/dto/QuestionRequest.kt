@@ -4,7 +4,7 @@ import java.math.BigDecimal
 import java.util.UUID
 
 data class QuestionRequest(
-    val lessonId: UUID,
+    val lessonId: UUID? = null,
 
     // ✅ ID real de la tabla question_types
     val questionTypeId: UUID,

@@ -138,23 +138,48 @@ class ProgressService(
     }
 
     @Transactional
-    fun completeLesson(userId: UUID, lessonId: UUID, correct: Int, mistakes: Int): UserLessonProgressEntity {
-        // 1. Buscamos el progreso
-        val progress = userLessonProgressRepository.findByUserIdAndLessonId(userId, lessonId)
+    fun completeLesson(
+        userId: UUID,
+        lessonId: UUID,
+        correct: Int,
+        mistakes: Int
+    ): UserLessonProgressEntity {
+
+        val user = userRepository.findById(userId)
+            .orElseThrow { NoSuchElementException("Usuario no encontrado") }
+
+        val lesson = lessonRepository.findById(lessonId)
+            .orElseThrow { NoSuchElementException("Lección no encontrada") }
+
+        val progress = userLessonProgressRepository
+            .findByUserIdAndLessonId(userId, lessonId)
             ?: UserLessonProgressEntity(
-                user = userRepository.findById(userId).orElseThrow(),
-                lesson = lessonRepository.findById(lessonId).orElseThrow()
+                user = user,
+                lesson = lesson
             )
 
-        // 2. Seteamos los valores
+        // PROGRESO DE LA LECCIÓN
         progress.isCompleted = true
         progress.correctAnswers = correct
         progress.mistakesCount = mistakes
         progress.lastPracticed = Instant.now()
 
-        // 3. Usamos saveAndFlush para forzar la escritura en disco
+        // XP
+        val xpGained = correct.toLong() * XP_PER_CORRECT_ANSWER
+        user.xpTotal += xpGained
+
+        // LINGOTES (💎)
+        user.lingotsCount += LINGOTS_PER_LESSON
+
+        // RACHA (🔥)
+        calculateAndSetStreak(user)
+
+        // GUARDAR
+        userRepository.save(user)
         return userLessonProgressRepository.saveAndFlush(progress)
     }
+
+
 
     fun getUnitProgress(unitId: UUID, userId: UUID): List<LessonProgressDTO> {
         // 1. Obtener todas las lecciones de la unidad, ya ordenadas.

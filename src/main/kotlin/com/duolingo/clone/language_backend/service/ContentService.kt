@@ -45,11 +45,14 @@ class ContentService(
     }
 
     // --- FUNCIÓN CREATEQUESTION (ACTUALIZADA) ---
+    // --- FUNCIÓN CREATEQUESTION (CORREGIDA) ---
     fun createQuestion(request: QuestionRequest): QuestionEntity {
-        val lesson = lessonRepository.findById(request.lessonId)
-            .orElseThrow { NoSuchElementException("Lección no encontrada con ID: ${request.lessonId}") }
+        // Validamos que el ID no sea nulo antes de pasarlo al repository
+        val lessonId = request.lessonId ?: throw NoSuchElementException("El lessonId no puede ser nulo")
 
-        // Busca el tipo de pregunta por su ID (UUID)
+        val lesson = lessonRepository.findById(lessonId)
+            .orElseThrow { NoSuchElementException("Lección no encontrada con ID: $lessonId") }
+
         val questionType = questionTypeRepository.findById(request.questionTypeId)
             .orElseThrow { NoSuchElementException("Tipo de pregunta no encontrado con ID: ${request.questionTypeId}") }
 
