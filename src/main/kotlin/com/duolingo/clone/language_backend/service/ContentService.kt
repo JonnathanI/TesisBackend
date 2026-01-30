@@ -47,14 +47,17 @@ class ContentService(
     // --- FUNCIÓN CREATEQUESTION (ACTUALIZADA) ---
     // --- FUNCIÓN CREATEQUESTION (CORREGIDA) ---
     fun createQuestion(request: QuestionRequest): QuestionEntity {
-        // Validamos que el ID no sea nulo antes de pasarlo al repository
-        val lessonId = request.lessonId ?: throw NoSuchElementException("El lessonId no puede ser nulo")
+        // 1. Corregimos el error de UUID? (Lesson)
+        val lessonId = request.lessonId ?: throw IllegalArgumentException("El lessonId no puede ser nulo")
 
         val lesson = lessonRepository.findById(lessonId)
             .orElseThrow { NoSuchElementException("Lección no encontrada con ID: $lessonId") }
 
-        val questionType = questionTypeRepository.findById(request.questionTypeId)
-            .orElseThrow { NoSuchElementException("Tipo de pregunta no encontrado con ID: ${request.questionTypeId}") }
+        // 2. Corregimos el error de UUID? (QuestionType)
+        val typeId = request.questionTypeId ?: throw IllegalArgumentException("El questionTypeId no puede ser nulo")
+
+        val questionType = questionTypeRepository.findById(typeId)
+            .orElseThrow { NoSuchElementException("Tipo de pregunta no encontrado con ID: $typeId") }
 
         val newQuestion = QuestionEntity(
             lesson = lesson,
@@ -64,9 +67,32 @@ class ContentService(
             options = request.options,
             audioUrl = request.audioUrl,
             hintJson = request.hintJson,
-            difficultyScore = request.difficultyScore
+            // 3. Corregimos el Type Mismatch de difficultyScore (Double a BigDecimal)
+            difficultyScore = request.difficultyScore.toBigDecimal(),
+            active = request.active
         )
         return questionRepository.save(newQuestion)
+    }
+
+    @Transactional
+    fun updateQuestion(id: UUID, request: QuestionRequest): QuestionEntity {
+        val question = questionRepository.findById(id)
+            .orElseThrow { NoSuchElementException("No existe la pregunta $id") }
+
+        question.active = request.active
+        question.textSource = request.textSource
+        question.textTarget = request.textTarget
+
+        // Corregimos la conversión para BigDecimal en el update también
+        question.difficultyScore = request.difficultyScore.toBigDecimal()
+
+        val typeId = request.questionTypeId ?: throw IllegalArgumentException("ID de tipo requerido")
+        val newType = questionTypeRepository.findById(typeId)
+            .orElseThrow { NoSuchElementException("Tipo no encontrado") }
+
+        question.questionType = newType
+
+        return questionRepository.save(question)
     }
 
     // --- ¡NUEVAS FUNCIONES AÑADIDAS! ---
@@ -97,25 +123,5 @@ class ContentService(
         }
     }
 
-    // Añade esto a tu ContentService.kt
 
-    @Transactional
-    fun updateQuestion(id: UUID, request: QuestionRequest): QuestionEntity {
-        val question = questionRepository.findById(id)
-            .orElseThrow { NoSuchElementException("No existe la pregunta $id") }
-
-        // Actualizamos el estado de activación
-        question.active = request.active
-
-        // También actualizamos otros campos por si acaso editaste texto
-        question.textSource = request.textSource
-        question.textTarget = request.textTarget
-
-        // Si cambiaste el tipo de pregunta
-        val newType = questionTypeRepository.findById(request.questionTypeId)
-            .orElseThrow { NoSuchElementException("Tipo no encontrado") }
-        question.questionType = newType
-
-        return questionRepository.save(question)
-    }
 }

@@ -16,6 +16,13 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
 
+  # Configuración para permitir subida de imágenes y audios
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+
   flyway:
     enabled: false
 
@@ -34,8 +41,16 @@ spring:
             port: 465
             class: javax.net.ssl.SSLSocketFactory
 
+# Configuración de Seguridad (JWT)
 application:
   security:
     jwt:
       secret-key: aHRtbC10ZXNpc2R1b2xpbmdvY2xvbmUtdW5pdmVyc2l0YXJpYS1uby11c2FyLWVzdGEtY2xhdmU=
       expiration: 86400000
+
+# CREDENCIALES DE CLOUDINARY
+# Reemplaza estos valores con los de tu consola de Cloudinary
+cloudinary:
+  cloud-name: de95r2oqx
+  api-key: 987292596382878
+  api-secret: EmJpBeOijG9uTDKUrnb5X1zveKQ

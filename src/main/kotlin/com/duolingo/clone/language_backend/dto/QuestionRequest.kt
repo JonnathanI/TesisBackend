@@ -1,21 +1,15 @@
 package com.duolingo.clone.language_backend.dto
 
-import java.math.BigDecimal
 import java.util.UUID
 
 data class QuestionRequest(
-    val lessonId: UUID? = null,
-
-    // ✅ ID real de la tabla question_types
-    val questionTypeId: UUID,
-
-    val textSource: String,
-    val textTarget: String? = null,
-
-    val options: List<String> = emptyList(),
-
-    val audioUrl: String? = null,
-    val hintJson: String? = null,
-    val difficultyScore: BigDecimal = BigDecimal("0.5"),
-    val active: Boolean = true,
+    var lessonId: UUID? = null,
+    var questionTypeId: UUID? = null, // Cambiado a opcional para evitar crash si llega nulo
+    var textSource: String = "",
+    var textTarget: String? = null,
+    var options: List<String> = emptyList(),
+    var audioUrl: String? = null,
+    var hintJson: String? = null,
+    var difficultyScore: Double = 0.5, // Double es más amigable para formularios
+    var active: Boolean = true,
 )

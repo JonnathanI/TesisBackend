@@ -5,15 +5,17 @@ import com.duolingo.clone.language_backend.entity.EvaluationEntity
 import com.duolingo.clone.language_backend.entity.QuestionEntity
 import com.duolingo.clone.language_backend.repository.EvaluationRepository
 import com.duolingo.clone.language_backend.repository.QuestionRepository
+import com.duolingo.clone.language_backend.repository.QuestionTypeRepository // Simplificado
 import jakarta.transaction.Transactional
 import org.springframework.stereotype.*
 import java.math.BigDecimal
+import java.util.UUID // IMPORTANTE: Asegúrate de tener esta importación
 
 @Service
 class EvaluationService(
     private val evaluationRepository: EvaluationRepository,
     private val questionRepository: QuestionRepository,
-    private val questionTypeRepository: com.duolingo.clone.language_backend.repository.QuestionTypeRepository
+    private val questionTypeRepository: QuestionTypeRepository
 ) {
     @Transactional
     fun createEvaluation(request: EvaluationRequest): EvaluationEntity {
@@ -26,19 +28,22 @@ class EvaluationService(
 
         // 2. Crear las preguntas vinculadas
         request.questions.forEach { qDto ->
-            val type = questionTypeRepository.findById(qDto.questionTypeId)
-                .orElseThrow { RuntimeException("Tipo no encontrado") }
+            // CORRECCIÓN: Manejo del UUID? para evitar el Type Mismatch
+            val typeId = qDto.questionTypeId ?: throw RuntimeException("El ID del tipo de pregunta es obligatorio")
+
+            val type = questionTypeRepository.findById(typeId)
+                .orElseThrow { RuntimeException("Tipo no encontrado con ID: $typeId") }
 
             val newQuestion = QuestionEntity(
-                lesson = null,            // No tiene lección
-                evaluation = savedEvaluation, // ASOCIACIÓN CORRECTA
+                lesson = null,
+                evaluation = savedEvaluation,
                 questionType = type,
                 textSource = qDto.textSource,
                 textTarget = qDto.textTarget,
                 options = qDto.options,
-                category = "EVALUATION",  // Marcamos que es de examen
+                category = "EVALUATION",
                 active = true,
-                difficultyScore = BigDecimal("1.0") // Valor por defecto
+                difficultyScore = BigDecimal("1.0")
             )
             questionRepository.save(newQuestion)
         }
