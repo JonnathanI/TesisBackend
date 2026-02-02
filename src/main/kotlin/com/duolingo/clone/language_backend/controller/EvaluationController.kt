@@ -1,6 +1,7 @@
 package com.duolingo.clone.language_backend.controller
 
 import com.duolingo.clone.language_backend.dto.EvaluationRequest
+import com.duolingo.clone.language_backend.dto.PendingEvaluationDTO
 import com.duolingo.clone.language_backend.entity.EvaluationAssignmentEntity
 import com.duolingo.clone.language_backend.entity.EvaluationEntity
 import com.duolingo.clone.language_backend.repository.EvaluationAssignmentRepository // 👈 Importa el nuevo
@@ -92,8 +93,19 @@ class EvaluationController(
 
         return ResponseEntity.ok("Evaluación asignada correctamente a ${student.fullName}")
     }
+    /*
     @GetMapping("/student/pending")
-    fun getPending(@RequestParam studentId: UUID): ResponseEntity<List<EvaluationAssignmentEntity>> {
-        return ResponseEntity.ok(assignmentRepository.findByStudentIdAndCompletedFalse(studentId))
+    fun getPending(@RequestParam studentId: UUID): ResponseEntity<List<PendingEvaluationDTO>> {
+        return ResponseEntity.ok(
+            assignmentRepository.findPendingEvaluationsForStudent(studentId)
+        )
+    }*/
+
+
+    @GetMapping("/assignment/{assignmentId}")
+    fun getAssignmentDetails(@PathVariable assignmentId: UUID): ResponseEntity<EvaluationAssignmentEntity> {
+        val assignment = assignmentRepository.findById(assignmentId)
+            .orElseThrow { RuntimeException("Asignación no encontrada") }
+        return ResponseEntity.ok(assignment)
     }
 }
