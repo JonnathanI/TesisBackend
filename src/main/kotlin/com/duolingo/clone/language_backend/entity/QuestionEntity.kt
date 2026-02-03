@@ -17,7 +17,7 @@ class QuestionEntity(
     // CAMBIO 1: nullable = true porque una pregunta de examen no tiene lección
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id", nullable = true)
-    @JsonBackReference(value = "evaluation-questions")
+    @JsonBackReference(value = "lesson-questions")
     var lesson: LessonEntity? = null,
 
     // CAMBIO 2: Nueva relación con la evaluación

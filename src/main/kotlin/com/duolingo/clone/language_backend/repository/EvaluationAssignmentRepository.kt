@@ -31,4 +31,22 @@ interface EvaluationAssignmentRepository : JpaRepository<EvaluationAssignmentEnt
     fun findPendingEvaluationsForStudent(
         @Param("studentId") studentId: UUID
     ): List<PendingEvaluationDTO>
+
+    // 🔹 Nueva: TODAS las evaluaciones del alumno
+    @Query("""
+        SELECT NEW com.duolingo.clone.language_backend.dto.PendingEvaluationDTO(
+            ea.id,
+            e.id,
+            e.title,
+            e.description,
+            ea.dueDate,
+            ea.completed,
+            ea.score
+        )
+        FROM EvaluationAssignmentEntity ea
+        JOIN ea.evaluation e
+        WHERE ea.student.id = :studentId
+        ORDER BY ea.assignedAt DESC
+    """)
+    fun findAllEvaluationsForStudent(@Param("studentId") studentId: UUID): List<PendingEvaluationDTO>
 }

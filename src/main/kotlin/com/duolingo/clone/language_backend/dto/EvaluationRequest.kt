@@ -5,5 +5,5 @@ import java.util.UUID
 data class EvaluationRequest(
     val title: String,
     val description: String?,
-    val questions: List<QuestionRequest> = emptyList()
+    val questions: List<EvaluationQuestionRequest> = emptyList()
 )

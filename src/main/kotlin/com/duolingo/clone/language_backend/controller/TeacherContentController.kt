@@ -21,7 +21,8 @@ class TeacherContentController(
     private val questionRepository: QuestionRepository,
     private val courseRepository: CourseRepository,
     private val questionTypeRepository: QuestionTypeRepository,
-    private val cloudinaryService: CloudinaryService
+    private val cloudinaryService: CloudinaryService,
+    private val evaluationRepository: EvaluationRepository
 ) {
 
     // ==========================================
@@ -126,42 +127,54 @@ class TeacherContentController(
             lessonRepository.findById(it).orElseThrow { RuntimeException("Lección no encontrada") }
         }
 
+        val evaluation = dto.evaluationId?.let {
+            evaluationRepository.findById(it).orElseThrow { RuntimeException("Evaluación no encontrada") }
+        }
+
+        if (lesson == null && evaluation == null) {
+            throw RuntimeException("Debes enviar lessonId O evaluationId")
+        }
+
         val typeId = dto.questionTypeId ?: throw RuntimeException("Tipo de pregunta requerido")
+
         val type = questionTypeRepository.findById(typeId)
             .orElseThrow { RuntimeException("Tipo de pregunta no encontrado") }
 
-        // 1. Subir audio
         val finalAudioUrl = if (audioFile != null && !audioFile.isEmpty) {
             cloudinaryService.uploadFile(audioFile, "audios")
         } else dto.audioUrl
 
-        // 2. Procesar opciones e imágenes
         val processedOptions = mutableListOf<String>()
 
         if (type.typeName == "IMAGE_SELECT") {
-            dto.options.forEachIndexed { index, text ->
-                // Obtenemos el archivo correspondiente al índice de la opción
-                val file = imageFiles?.getOrNull(index)
-                val imageUrl = if (file != null && !file.isEmpty && file.originalFilename != "placeholder.txt") {
+            dto.options.forEachIndexed { idx, txt ->
+                val file = imageFiles?.getOrNull(idx)
+                val url = if (file != null && !file.isEmpty && file.originalFilename != "placeholder.txt") {
                     cloudinaryService.uploadFile(file, "pregunta_imagenes")
-                } else {
-                    null // Aquí podrías mantener la URL anterior si fuera un update
-                }
+                } else null
 
-                processedOptions.add("""{"value":"$text", "imageUrl":"$imageUrl"}""")
+                processedOptions.add("""{"value":"$txt","imageUrl":"$url"}""")
             }
         } else {
             processedOptions.addAll(dto.options)
         }
 
         val question = if (id != null) {
-            questionRepository.findById(id).orElseThrow { RuntimeException("No existe") }.apply {
+            questionRepository.findById(id).orElseThrow().apply {
                 this.textSource = dto.textSource
                 this.textTarget = dto.textTarget
                 this.options = processedOptions
                 this.questionType = type
                 this.audioUrl = finalAudioUrl
                 this.active = dto.active
+
+                if (evaluation != null) {
+                    this.evaluation = evaluation
+                    this.lesson = null
+                } else if (lesson != null) {
+                    this.lesson = lesson
+                    this.evaluation = null
+                }
             }
         } else {
             QuestionEntity(
@@ -169,8 +182,9 @@ class TeacherContentController(
                 textTarget = dto.textTarget,
                 options = processedOptions,
                 lesson = lesson,
+                evaluation = evaluation,
                 questionType = type,
-                category = type.typeName,
+                category = if (evaluation != null) "EVALUATION" else type.typeName,
                 audioUrl = finalAudioUrl,
                 difficultyScore = dto.difficultyScore.toBigDecimal(),
                 active = dto.active
@@ -179,6 +193,7 @@ class TeacherContentController(
 
         return questionRepository.save(question)
     }
+
 
     @DeleteMapping("/questions/{id}")
     fun deleteQuestion(@PathVariable id: UUID): ResponseEntity<Void> {

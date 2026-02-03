@@ -22,6 +22,7 @@ class StudentEvaluationController(
             assignmentRepository.findPendingEvaluationsForStudent(studentId)
         )
     }
+
     @GetMapping("/assignment/{assignmentId}")
     fun getEvaluationByAssignment(
         @PathVariable assignmentId: UUID
@@ -51,5 +52,35 @@ class StudentEvaluationController(
         return ResponseEntity.ok(dto)
     }
 
+    // 👇 NUEVO: marcar la evaluación como completada
+    data class CompleteEvaluationRequest(
+        val score: Int? = null,          // el front manda un número
+        val status: String? = null       // lo aceptamos pero NO lo usamos por ahora
+    )
 
+    @PostMapping("/assignment/{assignmentId}/complete")
+    fun completeEvaluation(
+        @PathVariable assignmentId: UUID,
+        @RequestBody body: CompleteEvaluationRequest
+    ): ResponseEntity<String> {
+
+        val assignment = assignmentRepository.findById(assignmentId)
+            .orElseThrow { RuntimeException("Asignación no encontrada") }
+
+        assignment.completed = true
+        // 👇 convertimos Int → BigDecimal para encajar con la entidad
+        assignment.score = (body.score ?: 0).toBigDecimal()
+
+        assignmentRepository.save(assignment)
+
+        return ResponseEntity.ok("Evaluación completada correctamente")
+    }
+
+    @GetMapping("/all")   // 🔹 NUEVO
+    fun getAllEvaluations(
+        @RequestParam studentId: UUID
+    ): ResponseEntity<List<PendingEvaluationDTO>> =
+        ResponseEntity.ok(
+            assignmentRepository.findAllEvaluationsForStudent(studentId)
+        )
 }

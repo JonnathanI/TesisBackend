@@ -1,17 +1,18 @@
 package com.duolingo.clone.language_backend.controller
 
 import com.duolingo.clone.language_backend.dto.EvaluationRequest
-import com.duolingo.clone.language_backend.dto.PendingEvaluationDTO
 import com.duolingo.clone.language_backend.entity.EvaluationAssignmentEntity
 import com.duolingo.clone.language_backend.entity.EvaluationEntity
 import com.duolingo.clone.language_backend.repository.EvaluationAssignmentRepository // 👈 Importa el nuevo
 import com.duolingo.clone.language_backend.repository.ClassroomRepository
 import com.duolingo.clone.language_backend.repository.EvaluationRepository
 import com.duolingo.clone.language_backend.repository.UserRepository
+import com.duolingo.clone.language_backend.service.CloudinaryService
 import com.duolingo.clone.language_backend.service.EvaluationService
 import jakarta.transaction.Transactional
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.multipart.MultipartFile
 import java.time.LocalDateTime
 import java.util.*
 
@@ -23,7 +24,8 @@ class EvaluationController(
     private val classroomRepository: ClassroomRepository,
     // CAMBIO CRÍTICO: Usar el repositorio específico para evaluaciones
     private val assignmentRepository: EvaluationAssignmentRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val cloudinaryService: CloudinaryService
 ) {
     @PostMapping
     fun createFullEvaluation(@RequestBody request: EvaluationRequest): ResponseEntity<EvaluationEntity> {
@@ -93,13 +95,6 @@ class EvaluationController(
 
         return ResponseEntity.ok("Evaluación asignada correctamente a ${student.fullName}")
     }
-    /*
-    @GetMapping("/student/pending")
-    fun getPending(@RequestParam studentId: UUID): ResponseEntity<List<PendingEvaluationDTO>> {
-        return ResponseEntity.ok(
-            assignmentRepository.findPendingEvaluationsForStudent(studentId)
-        )
-    }*/
 
 
     @GetMapping("/assignment/{assignmentId}")
@@ -108,4 +103,14 @@ class EvaluationController(
             .orElseThrow { RuntimeException("Asignación no encontrada") }
         return ResponseEntity.ok(assignment)
     }
+
+    @PostMapping("/upload")
+    fun uploadGenericFile(
+        @RequestParam file: MultipartFile,
+        @RequestParam(required = false, defaultValue = "misc") folder: String
+    ): ResponseEntity<String> {
+        val url = cloudinaryService.uploadFile(file, folder)
+        return ResponseEntity.ok(url) // 👈 Devuelves solo la URL
+    }
+
 }

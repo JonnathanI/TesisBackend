@@ -4,6 +4,7 @@ import java.util.UUID
 
 data class QuestionRequest(
     var lessonId: UUID? = null,
+    var evaluationId: UUID? = null,
     var questionTypeId: UUID? = null, // Cambiado a opcional para evitar crash si llega nulo
     var textSource: String = "",
     var textTarget: String? = null,
