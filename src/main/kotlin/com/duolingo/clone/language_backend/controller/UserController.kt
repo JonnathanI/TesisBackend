@@ -194,4 +194,22 @@ class UserController(
         val progress = userService.getDetailedProgressForStudent(friendId)
         return ResponseEntity.ok(progress)
     }
+
+    @GetMapping("/admin/all")
+    fun getAllUsersAdmin(): ResponseEntity<List<AdminUserDTO>> {
+        val users = userRepository.findAll().map { user ->
+            AdminUserDTO(
+                id = user.id!!,
+                fullName = user.fullName,
+                email = user.email,
+                username = user.email.substringBefore("@"),
+                cedula = user.cedula,
+                role = user.role.name,               // si tu enum es UserRole
+                xpTotal = user.xpTotal ?: 0,
+                currentStreak = user.currentStreak ?: 0,
+                isActive = user.isActive
+            )
+        }
+        return ResponseEntity.ok(users)
+    }
 }

@@ -15,5 +15,7 @@ data class EvaluationQuestionDTO(
     val audioUrl: String? = null,
 
     // 🖼️ NUEVO: si no hay imágenes, lista vacía
-    val imageUrls: List<String> = emptyList()
+    val imageUrls: List<String> = emptyList(),
+    val studentAnswer: String? = null,
+    val isCorrect: Boolean? = null
 )
