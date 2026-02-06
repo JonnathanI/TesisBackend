@@ -1,31 +1,41 @@
+// CourseEntity.kt
 package com.duolingo.clone.language_backend.entity
 
-import com.fasterxml.jackson.annotation.JsonManagedReference // <-- IMPORTANTE
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import jakarta.persistence.*
 import java.util.UUID
 
 @Entity
 @Table(name = "course")
-data class CourseEntity(
+@JsonIgnoreProperties(value = ["hibernateLazyInitializer", "handler"])
+
+class CourseEntity(
+
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    val id: UUID? = null,
+    var id: UUID? = null,
 
-    @Column(nullable = false, unique = true)
-    val title: String,
+    @Column(nullable = false)
+    var title: String,
 
-    @Column(name = "target_language", nullable = false)
-    val targetLanguage: String,
+    @Column(nullable = false)
+    var baseLanguage: String = "ES",
 
-    @Column(name = "base_language", nullable = false)
-    val baseLanguage: String,
+    @Column(nullable = false)
+    var targetLanguage: String = "EN",
 
     @Column(name = "is_active", nullable = false)
-    val isActive: Boolean = true,
+    var isActive: Boolean = true,
 
-    // Lista de unidades: Esta es la referencia "principal" (Managed Reference).
-    // Serializará las unidades, pero las unidades no serializarán de vuelta al curso.
-    @OneToMany(mappedBy = "course", cascade = [CascadeType.ALL], orphanRemoval = true)
-    @JsonManagedReference // <-- ANOTACIÓN AÑADIDA
-    val units: List<UnitEntity> = emptyList() // Es vital inicializar colecciones
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "teacher_id")
+    var teacher: UserEntity? = null,
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "course_student",
+        joinColumns = [JoinColumn(name = "course_id")],
+        inverseJoinColumns = [JoinColumn(name = "student_id")]
+    )
+    var students: MutableSet<UserEntity> = mutableSetOf()
 )

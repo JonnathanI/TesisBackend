@@ -10,38 +10,40 @@ class CourseService(
     private val courseRepository: CourseRepository
 ) {
 
-    fun findAllCourses(): List<CourseEntity> {
-        return courseRepository.findAll()
-    }
+    fun findAllCourses(): List<CourseEntity> =
+        courseRepository.findAll()
 
-    fun findCourseById(id: UUID): CourseEntity? {
-        return courseRepository.findById(id).orElse(null)
-    }
+    // Por ahora "activos" = todos
+    fun findActiveCourses(): List<CourseEntity> =
+        courseRepository.findAll()
 
-    fun findActiveCourses(): List<CourseEntity> {
-        // Asumiendo que has definido un método en CourseRepository: findByIsActive(Boolean)
-        // Por ahora, usaremos un filtro en memoria si no está en el repositorio:
-        return courseRepository.findAll().filter { it.isActive }
-    }
+    fun findCourseById(id: UUID): CourseEntity? =
+        courseRepository.findById(id).orElse(null)
 
     fun createCourse(course: CourseEntity): CourseEntity {
-        // Lógica de validación, por ejemplo, que no exista un curso con el mismo título
-        require(courseRepository.findByTitle(course.title) == null) { "Ya existe un curso con este título." }
+        // Ejemplo de validación: no repetir título
+        require(courseRepository.findByTitle(course.title) == null) {
+            "Ya existe un curso con este título."
+        }
         return courseRepository.save(course)
     }
 
-    // Método que solo un ADMIN o TEACHER puede usar
     fun updateCourse(id: UUID, updatedCourse: CourseEntity): CourseEntity {
         val existingCourse = courseRepository.findById(id)
             .orElseThrow { NoSuchElementException("Curso no encontrado con ID: $id") }
 
-        val courseToUpdate = existingCourse.copy(
-            title = updatedCourse.title,
-            targetLanguage = updatedCourse.targetLanguage,
-            baseLanguage = updatedCourse.baseLanguage,
-            isActive = updatedCourse.isActive
-        )
-        return courseRepository.save(courseToUpdate)
+        // Como la entidad es mutable, actualizamos los campos directamente
+        existingCourse.title = updatedCourse.title
+        existingCourse.baseLanguage = updatedCourse.baseLanguage
+        existingCourse.targetLanguage = updatedCourse.targetLanguage
+
+        // Si quieres permitir cambiar el profesor desde el panel:
+        existingCourse.teacher = updatedCourse.teacher
+
+        // Normalmente NO tocaríamos students aquí; lo haríamos en métodos específicos
+        // (addStudentToCourse, removeStudentFromCourse, etc.)
+
+        return courseRepository.save(existingCourse)
     }
 
     fun deleteCourse(id: UUID) {

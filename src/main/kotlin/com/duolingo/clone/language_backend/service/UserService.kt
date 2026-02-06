@@ -527,4 +527,16 @@ class UserService(
             )
         }
     }
+
+    fun updateUser(id: UUID, request: UpdateUserRequest): UserEntity {
+        val user = userRepository.findById(id)
+            .orElseThrow { RuntimeException("Usuario no encontrado") }
+
+        user.fullName = request.fullName
+        user.email = request.email
+        user.cedula = request.cedula
+
+        return userRepository.save(user)
+    }
+
 }

@@ -43,14 +43,15 @@ class UserController(
             fullName = user.fullName,
             username = username,
             joinedAt = user.createdAt,
-            totalXp = user.xpTotal,
-            currentStreak = user.currentStreak,
-            lingots = user.lingotsCount,
+            totalXp = (user.xpTotal ?: 0L).toInt(),     // 👈 aquí
+            currentStreak = (user.currentStreak ?: 0).toInt(),
+            lingots = (user.lingotsCount ?: 0).toInt(),
             heartsCount = user.heartsCount,
-            nextHeartRegenTime = nextRegen, // Ahora sí está definido
+            nextHeartRegenTime = nextRegen,
             league = "Bronce",
             avatarData = user.avatarData
         )
+
 
         return ResponseEntity.ok(response)
     }
@@ -78,11 +79,11 @@ class UserController(
             LeaderboardEntryDTO(
                 userId = user.id!!,
                 fullName = user.fullName,
-                // Usamos toLong() por si acaso el DTO lo requiere explícitamente
-                xpTotal = user.xpTotal,
+                xpTotal = (user.xpTotal ?: 0L).toInt(),   // 👈 cast a Int
                 position = index + 1
             )
         }
+
         return ResponseEntity.ok(leaderboard)
     }
     @PostMapping("/me/subtract-heart")
@@ -108,14 +109,15 @@ class UserController(
             fullName = updatedUser.fullName,
             username = updatedUser.email,
             joinedAt = updatedUser.createdAt,
-            totalXp = updatedUser.xpTotal.toLong(),
-            currentStreak = updatedUser.currentStreak,
-            lingots = updatedUser.lingotsCount,
+            totalXp = (updatedUser.xpTotal ?: 0L).toInt(),   // 👈 Int
+            currentStreak = (updatedUser.currentStreak ?: 0).toInt(),
+            lingots = (updatedUser.lingotsCount ?: 0).toInt(),
             heartsCount = updatedUser.heartsCount,
             nextHeartRegenTime = updatedUser.lastHeartRefillTime?.plusSeconds(300),
             league = "Bronce",
             avatarData = null
         )
+
 
         return ResponseEntity.ok(response)
     }
@@ -204,12 +206,49 @@ class UserController(
                 email = user.email,
                 username = user.email.substringBefore("@"),
                 cedula = user.cedula,
-                role = user.role.name,               // si tu enum es UserRole
-                xpTotal = user.xpTotal ?: 0,
-                currentStreak = user.currentStreak ?: 0,
+                role = user.role.name,
+                xpTotal = (user.xpTotal ?: 0L).toInt(),          // 👈 cast a Int
+                currentStreak = (user.currentStreak ?: 0).toInt(),
                 isActive = user.isActive
             )
         }
         return ResponseEntity.ok(users)
     }
+    @PutMapping("/{id}")
+    fun updateUser(
+        @PathVariable id: UUID,
+        @RequestBody request: UpdateUserRequest
+    ): ResponseEntity<UpdateUserResponse> {
+
+        val user = userRepository.findById(id)
+            .orElseThrow { RuntimeException("Usuario no encontrado") }
+
+        user.fullName = request.fullName
+        user.email = request.email
+        user.cedula = request.cedula
+
+        userRepository.save(user)
+
+        // 👇 AHORA sí devolvemos JSON: { "message": "..." }
+        return ResponseEntity.ok(
+            UpdateUserResponse(message = "Usuario actualizado correctamente")
+        )
+    }
+    @PutMapping("/admin/status/{id}")
+    fun updateUserStatus(
+        @PathVariable id: UUID,
+        @RequestBody request: UpdateStatusRequest
+    ): ResponseEntity<UpdateUserResponse> {
+
+        val user = userRepository.findById(id)
+            .orElseThrow { RuntimeException("Usuario no encontrado") }
+
+        user.isActive = request.active
+        userRepository.save(user)
+
+        return ResponseEntity.ok(
+            UpdateUserResponse(message = "Estado actualizado correctamente")
+        )
+    }
+
 }

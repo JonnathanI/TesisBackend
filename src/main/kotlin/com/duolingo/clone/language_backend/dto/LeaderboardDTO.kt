@@ -5,6 +5,6 @@ import java.util.UUID
 data class LeaderboardEntryDTO(
     val userId: UUID,
     val fullName: String,
-    val xpTotal: Long,
+    val xpTotal: Int,
     val position: Int // 1, 2, 3...
 )

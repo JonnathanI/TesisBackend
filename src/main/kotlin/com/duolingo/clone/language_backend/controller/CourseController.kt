@@ -1,8 +1,11 @@
 package com.duolingo.clone.language_backend.controller
 
+import com.duolingo.clone.language_backend.dto.CreateCourseDTO
 import com.duolingo.clone.language_backend.entity.CourseEntity
 import com.duolingo.clone.language_backend.entity.UnitEntity
 import com.duolingo.clone.language_backend.repository.UnitRepository
+import com.duolingo.clone.language_backend.repository.CourseRepository
+import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.service.CourseService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -13,13 +16,14 @@ import java.util.UUID
 @RequestMapping("/api/courses")
 class CourseController(
     private val courseService: CourseService,
-    private val unitRepository: UnitRepository
+    private val unitRepository: UnitRepository,
+    private val courseRepository: CourseRepository, // 👈 nuevo
+    private val userRepository: UserRepository      // 👈 nuevo
 ) {
 
-    // GET /api/courses (Ruta pública/autenticada para ver la lista de cursos)
+    // GET /api/courses
     @GetMapping
     fun getAllCourses(): List<CourseEntity> {
-        // En un entorno real, solo retornarías cursos activos, no todos los CourseEntity
         return courseService.findActiveCourses()
     }
 
@@ -29,32 +33,49 @@ class CourseController(
         val course = courseService.findCourseById(id)
         return if (course != null) ResponseEntity.ok(course) else ResponseEntity.notFound().build()
     }
+
     // GET /api/courses/{courseId}/units
     @GetMapping("/{courseId}/units")
     fun getUnitsByCourse(@PathVariable courseId: UUID): ResponseEntity<List<UnitEntity>> {
         val units = unitRepository.findAllByCourseIdOrderByUnitOrderAsc(courseId)
         return ResponseEntity.ok(units)
     }
-    // POST /api/courses (Ruta PROTEGIDA: Solo TEACHER/ADMIN pueden crear)
-    // Spring Security validará que el usuario autenticado tenga el rol adecuado.
+
     @PostMapping
-    fun createCourse(@RequestBody course: CourseEntity): ResponseEntity<CourseEntity> {
-        try {
-            val newCourse = courseService.createCourse(course)
-            return ResponseEntity.status(HttpStatus.CREATED).body(newCourse)
-        } catch (e: IllegalArgumentException) {
-            return ResponseEntity.badRequest().build()
+    fun createCourse(@RequestBody dto: CreateCourseDTO): ResponseEntity<CourseEntity> {
+
+        val course = CourseEntity(
+            title = dto.title,
+            baseLanguage = dto.baseLanguage,
+            targetLanguage = dto.targetLanguage
+        )
+
+        // 🔹 Asignar profesor principal si hay uno
+        if (dto.teachers.isNotEmpty()) {
+            val teacher = userRepository.findById(dto.teachers.first()).orElseThrow()
+            course.teacher = teacher
         }
+
+        // 🔹 Asignar estudiantes
+        val students = dto.students.map { userRepository.findById(it).orElseThrow() }
+        course.students.addAll(students)
+
+        return ResponseEntity.ok(courseRepository.save(course))
     }
 
-    // PUT /api/courses/{id} (Ruta PROTEGIDA: Solo TEACHER/ADMIN pueden actualizar)
+
+
+    // PUT /api/courses/{id}
     @PutMapping("/{id}")
-    fun updateCourse(@PathVariable id: UUID, @RequestBody updatedCourse: CourseEntity): ResponseEntity<CourseEntity> {
-        try {
+    fun updateCourse(
+        @PathVariable id: UUID,
+        @RequestBody updatedCourse: CourseEntity
+    ): ResponseEntity<CourseEntity> {
+        return try {
             val course = courseService.updateCourse(id, updatedCourse)
-            return ResponseEntity.ok(course)
+            ResponseEntity.ok(course)
         } catch (e: NoSuchElementException) {
-            return ResponseEntity.notFound().build()
+            ResponseEntity.notFound().build()
         }
     }
 
@@ -64,5 +85,45 @@ class CourseController(
         return ResponseEntity.noContent().build()
     }
 
+    // ==============================
+    //  NUEVO: ASIGNAR PROFESOR
+    // ==============================
+    @PostMapping("/{courseId}/assign-teacher/{teacherId}")
+    fun assignTeacherToCourse(
+        @PathVariable courseId: UUID,
+        @PathVariable teacherId: UUID
+    ): ResponseEntity<String> {
 
+        val course = courseRepository.findById(courseId)
+            .orElseThrow { RuntimeException("Curso no encontrado") }
+
+        val teacher = userRepository.findById(teacherId)
+            .orElseThrow { RuntimeException("Profesor no encontrado") }
+
+        course.teacher = teacher
+        courseRepository.save(course)
+
+        return ResponseEntity.ok("Profesor asignado al curso")
+    }
+
+    // ==============================
+    //  NUEVO: ASIGNAR ESTUDIANTE
+    // ==============================
+    @PostMapping("/{courseId}/assign-student/{studentId}")
+    fun assignStudentToCourse(
+        @PathVariable courseId: UUID,
+        @PathVariable studentId: UUID
+    ): ResponseEntity<String> {
+
+        val course = courseRepository.findById(courseId)
+            .orElseThrow { RuntimeException("Curso no encontrado") }
+
+        val student = userRepository.findById(studentId)
+            .orElseThrow { RuntimeException("Estudiante no encontrado") }
+
+        course.students.add(student)
+        courseRepository.save(course)
+
+        return ResponseEntity.ok("Estudiante asignado al curso")
+    }
 }

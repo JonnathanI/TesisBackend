@@ -7,7 +7,7 @@ data class UserProfileResponse(
     val fullName: String,
     val username: String,
     val joinedAt: Instant?,
-    val totalXp: Long,
+    val totalXp: Int,
     val currentStreak: Int,
     val lingots: Int,
     val heartsCount: Int,

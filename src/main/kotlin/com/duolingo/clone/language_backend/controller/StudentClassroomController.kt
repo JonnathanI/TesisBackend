@@ -93,8 +93,8 @@ class StudentClassroomController(private val classroomService: ClassroomService)
                 LeaderboardEntryDTO(
                     userId = student.id!!,
                     fullName = student.fullName,
-                    xpTotal = student.xpTotal.toLong(), // Aseguramos que sea Long
-                    position = index + 1
+                    xpTotal = (student.xpTotal ?: 0L).toInt(),
+                            position = index + 1
                 )
             }
 

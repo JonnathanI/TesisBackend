@@ -9,7 +9,7 @@ data class AdminUserDTO(
     val username: String?,
     val cedula: String?,
     val role: String,
-    val xpTotal: Long,          // 👈 CAMBIAR A LONG
+    val xpTotal: Int,          // 👈 CAMBIAR A LONG
     val currentStreak: Int,
     val isActive: Boolean
 )
