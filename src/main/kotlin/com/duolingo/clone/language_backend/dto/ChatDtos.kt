@@ -8,8 +8,11 @@ data class ChatMessageResponse(
     val senderId: UUID,
     val receiverId: UUID,
     val content: String,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val attachmentUrl: String? = null,
+    val attachmentType: String? = null
 )
+
 
 data class SendMessageRequest(
     val content: String
