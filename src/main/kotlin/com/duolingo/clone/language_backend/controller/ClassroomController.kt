@@ -54,7 +54,8 @@ class ClassroomController(private val classroomService: ClassroomService) {
                     fullName = student.fullName,
                     email = student.email,
                     // SOLUCIÓN: Agregamos .toLong() para convertir el Int a Long
-                    xpTotal = student.xpTotal.toLong()
+                    xpTotal = student.xpTotal.toLong(),
+                    currentStreak = student.currentStreak,
                 )
             }
         )

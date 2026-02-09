@@ -2,6 +2,7 @@ package com.duolingo.clone.language_backend.controller
 
 import com.duolingo.clone.language_backend.dto.CreateCourseDTO
 import com.duolingo.clone.language_backend.dto.QuestionRequest
+import com.duolingo.clone.language_backend.dto.StudentSummaryDTO
 import com.duolingo.clone.language_backend.entity.CourseEntity
 import com.duolingo.clone.language_backend.entity.LessonEntity
 import com.duolingo.clone.language_backend.entity.QuestionEntity
@@ -319,5 +320,23 @@ class TeacherContentController(
     fun deleteQuestion(@PathVariable id: UUID): ResponseEntity<Void> {
         questionRepository.deleteById(id)
         return ResponseEntity.ok().build()
+    }
+
+    @GetMapping("/students")
+    fun getMyStudents(): ResponseEntity<List<StudentSummaryDTO>> {
+        val teacherId = currentUserService.getCurrentUserId()
+
+        val students = userRepository.findStudentsByTeacherId(teacherId)
+            .map { user ->
+                StudentSummaryDTO(
+                    id = user.id!!,
+                    fullName = user.fullName,
+                    email = user.email,
+                    xpTotal = user.xpTotal,
+                    currentStreak = user.currentStreak
+                )
+            }
+
+        return ResponseEntity.ok(students)
     }
 }

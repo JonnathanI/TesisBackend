@@ -69,7 +69,7 @@ class CourseController(
 
         return ResponseEntity.ok(courseRepository.save(course))
     }
-
+/*
     @PutMapping("/{id}")
     fun updateCourse(
         @PathVariable id: UUID,
@@ -81,7 +81,7 @@ class CourseController(
         } catch (e: NoSuchElementException) {
             ResponseEntity.notFound().build()
         }
-    }
+    }*/
 
     @DeleteMapping("/{id}")
     fun deleteCourse(@PathVariable id: UUID): ResponseEntity<Void> {
@@ -124,4 +124,40 @@ class CourseController(
 
         return ResponseEntity.ok("Estudiante asignado al curso")
     }
+
+    @PutMapping("/{id}")
+    fun updateCourse(
+        @PathVariable id: UUID,
+        @RequestBody dto: CreateCourseDTO
+    ): ResponseEntity<CourseEntity> {
+
+        val course = courseRepository.findById(id)
+            .orElseThrow { RuntimeException("Curso no encontrado con ID: $id") }
+
+        // Campos básicos
+        course.title = dto.title
+        course.baseLanguage = dto.baseLanguage
+        course.targetLanguage = dto.targetLanguage
+
+        // PROFESOR PRINCIPAL
+        if (dto.teachers.isNotEmpty()) {
+            val teacher = userRepository.findById(dto.teachers.first())
+                .orElseThrow { RuntimeException("Profesor no encontrado") }
+            course.teacher = teacher
+        } else {
+            course.teacher = null // o deja el existente si prefieres
+        }
+
+        // ESTUDIANTES
+        course.students.clear()
+        val students = dto.students.map { userId ->
+            userRepository.findById(userId)
+                .orElseThrow { RuntimeException("Estudiante no encontrado: $userId") }
+        }
+        course.students.addAll(students)
+
+        val saved = courseRepository.save(course)
+        return ResponseEntity.ok(saved)
+    }
+
 }

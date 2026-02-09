@@ -7,5 +7,6 @@ data class StudentSummaryDTO(
     val id: UUID,
     val fullName: String,
     val email: String,
-    val xpTotal: Long
+    val xpTotal: Long,
+    val currentStreak: Int
 )
