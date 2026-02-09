@@ -8,6 +8,7 @@ import com.duolingo.clone.language_backend.entity.QuestionEntity
 import com.duolingo.clone.language_backend.entity.UnitEntity
 import com.duolingo.clone.language_backend.repository.*
 import com.duolingo.clone.language_backend.service.CloudinaryService
+import com.duolingo.clone.language_backend.service.CurrentUserService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.multipart.MultipartFile
@@ -22,17 +23,57 @@ class TeacherContentController(
     private val courseRepository: CourseRepository,
     private val questionTypeRepository: QuestionTypeRepository,
     private val cloudinaryService: CloudinaryService,
-    private val evaluationRepository: EvaluationRepository
+    private val evaluationRepository: EvaluationRepository,
+    private val currentUserService: CurrentUserService,   // 👈 NUEVO
+    private val userRepository: UserRepository            // 👈 NUEVO
 ) {
+
+    // ==========================================
+    // 0. CURSOS DEL PROFESOR
+    // ==========================================
+    // 🔹 LISTAR SOLO LOS CURSOS DEL PROFESOR LOGUEADO
+    @GetMapping("/courses")
+    fun getMyCourses(): ResponseEntity<List<CourseEntity>> {
+        val teacherId = currentUserService.getCurrentUserId()
+        val courses = courseRepository.findByTeacherId(teacherId)
+        return ResponseEntity.ok(courses)
+    }
+
+    // 🔹 CREAR CURSO COMO PROFESOR (se asigna automáticamente al profe actual)
+    @PostMapping("/courses")
+    fun createCourseAsTeacher(@RequestBody dto: CreateCourseDTO): ResponseEntity<CourseEntity> {
+        val teacherId = currentUserService.getCurrentUserId()
+        val teacher = userRepository.findById(teacherId)
+            .orElseThrow { RuntimeException("Profesor no encontrado") }
+
+        val course = CourseEntity(
+            title = dto.title,
+            baseLanguage = dto.baseLanguage,
+            targetLanguage = dto.targetLanguage,
+            teacher = teacher
+        )
+
+        val saved = courseRepository.save(course)
+        return ResponseEntity.ok(saved)
+    }
 
     // ==========================================
     // 1. GESTIÓN DE UNIDADES
     // ==========================================
+
+    // 🔹 SOLO UNIDADES DE CURSOS DEL PROFESOR
     @GetMapping("/units")
-    fun getAllUnits(): ResponseEntity<List<UnitEntity>> = ResponseEntity.ok(unitRepository.findAll())
+    fun getAllUnits(): ResponseEntity<List<UnitEntity>> {
+        val teacherId = currentUserService.getCurrentUserId()
+        val units = unitRepository.findAllByCourseTeacherIdOrderByUnitOrderAsc(teacherId)
+        println("🔎 [TeacherContentController] teacherId=$teacherId, unidades=${units.size}")
+        return ResponseEntity.ok(units)
+    }
 
     @PostMapping("/units")
     fun createUnit(@RequestBody request: Map<String, Any>): ResponseEntity<UnitEntity> {
+        val teacherId = currentUserService.getCurrentUserId()
+
         val courseId = UUID.fromString(request["courseId"] as String)
         val title = request["title"] as String
         val order = (request["unitOrder"] as Number).toInt()
@@ -40,13 +81,27 @@ class TeacherContentController(
         val course = courseRepository.findById(courseId)
             .orElseThrow { RuntimeException("Curso no encontrado") }
 
+        // 🔒 Validar que el curso pertenece al profe actual
+        if (course.teacher?.id != teacherId) {
+            throw RuntimeException("No tienes permiso para modificar este curso")
+        }
+
         val unit = UnitEntity(title = title, unitOrder = order, course = course)
         return ResponseEntity.ok(unitRepository.save(unit))
     }
 
     @PutMapping("/units/{id}")
     fun updateUnit(@PathVariable id: UUID, @RequestBody request: Map<String, Any>): ResponseEntity<UnitEntity> {
-        val unit = unitRepository.findById(id).orElseThrow { RuntimeException("Unidad no encontrada") }
+        val teacherId = currentUserService.getCurrentUserId()
+
+        val unit = unitRepository.findById(id)
+            .orElseThrow { RuntimeException("Unidad no encontrada") }
+
+        // 🔒 Validar que la unidad pertenece a un curso del profe
+        if (unit.course.teacher?.id != teacherId) {
+            throw RuntimeException("No tienes permiso para modificar esta unidad")
+        }
+
         val updatedUnit = unit.copy(
             title = request["title"] as String,
             unitOrder = (request["unitOrder"] as Number).toInt()
@@ -56,7 +111,17 @@ class TeacherContentController(
 
     @DeleteMapping("/units/{id}")
     fun deleteUnit(@PathVariable id: UUID): ResponseEntity<Void> {
-        unitRepository.deleteById(id)
+        val teacherId = currentUserService.getCurrentUserId()
+
+        val unit = unitRepository.findById(id)
+            .orElseThrow { RuntimeException("Unidad no encontrada") }
+
+        // 🔒 Validar que la unidad pertenece a un curso del profe
+        if (unit.course.teacher?.id != teacherId) {
+            throw RuntimeException("No tienes permiso para borrar esta unidad")
+        }
+
+        unitRepository.delete(unit)
         return ResponseEntity.ok().build()
     }
 
@@ -66,8 +131,15 @@ class TeacherContentController(
 
     @PostMapping("/lessons")
     fun createLesson(@RequestBody request: Map<String, Any>): ResponseEntity<LessonEntity> {
+        val teacherId = currentUserService.getCurrentUserId()
+
         val unitId = UUID.fromString(request["unitId"] as String)
         val unit = unitRepository.findById(unitId).orElseThrow { RuntimeException("Unidad no encontrada") }
+
+        // 🔒 Validar que la unidad pertenece a un curso del profe
+        if (unit.course.teacher?.id != teacherId) {
+            throw RuntimeException("No tienes permiso para añadir lecciones a esta unidad")
+        }
 
         val lesson = LessonEntity(
             title = request["title"] as String,
@@ -80,12 +152,22 @@ class TeacherContentController(
 
     @DeleteMapping("/lessons/{id}")
     fun deleteLesson(@PathVariable id: UUID): ResponseEntity<Void> {
-        lessonRepository.deleteById(id)
+        val teacherId = currentUserService.getCurrentUserId()
+
+        val lesson = lessonRepository.findById(id)
+            .orElseThrow { RuntimeException("Lección no encontrada") }
+
+        // 🔒 Validar que la lección pertenece a un curso del profe
+        if (lesson.unit.course.teacher?.id != teacherId) {
+            throw RuntimeException("No tienes permiso para borrar esta lección")
+        }
+
+        lessonRepository.delete(lesson)
         return ResponseEntity.ok().build()
     }
 
     // ==========================================
-    // 3. GESTIÓN DE PREGUNTAS (CORREGIDA)
+    // 3. GESTIÓN DE PREGUNTAS (CON ARCHIVOS)
     // ==========================================
 
     @GetMapping("/lessons/{lessonId}/questions")
@@ -93,6 +175,48 @@ class TeacherContentController(
         val questions = questionRepository.findAll().filter { it.lesson?.id == lessonId }
         return ResponseEntity.ok(questions)
     }
+
+    // 🔹 ACTUALIZAR LECCIÓN
+    @PutMapping("/lessons/{id}")
+    fun updateLesson(
+        @PathVariable id: UUID,
+        @RequestBody request: Map<String, Any>
+    ): ResponseEntity<LessonEntity> {
+
+        val teacherId = currentUserService.getCurrentUserId()
+
+        // 1. Buscar la lección
+        val lesson = lessonRepository.findById(id)
+            .orElseThrow { RuntimeException("Lección no encontrada") }
+
+        // 2. Verificar que el curso de esa lección pertenezca al profe logueado
+        val unit = lesson.unit
+            ?: throw RuntimeException("La lección no tiene unidad asociada")
+
+        val course = unit.course
+            ?: throw RuntimeException("La unidad no tiene curso asociado")
+
+        if (course.teacher?.id != teacherId) {
+            throw RuntimeException("No tienes permiso para modificar esta lección")
+        }
+
+        // 3. Leer campos del body
+        val newTitle = request["title"] as? String ?: lesson.title
+        val newOrder = (request["lessonOrder"] as? Number)?.toInt() ?: lesson.lessonOrder
+        val newRequiredXp = (request["requiredXp"] as? Number)?.toInt() ?: lesson.requiredXp
+
+        // 4. Crear copia actualizada
+        val updated = lesson.copy(
+            title = newTitle,
+            lessonOrder = newOrder,
+            requiredXp = newRequiredXp
+        )
+
+        // 5. Guardar
+        val saved = lessonRepository.save(updated)
+        return ResponseEntity.ok(saved)
+    }
+
 
     @PostMapping("/questions", consumes = ["multipart/form-data"])
     fun createQuestion(
@@ -113,9 +237,6 @@ class TeacherContentController(
         return ResponseEntity.ok(saveOrUpdateQuestion(id, dto, imageFiles, audioFile))
     }
 
-    /**
-     * Lógica compartida para guardar o actualizar preguntas con archivos
-     */
     private fun saveOrUpdateQuestion(
         id: UUID?,
         dto: QuestionRequest,
@@ -194,16 +315,9 @@ class TeacherContentController(
         return questionRepository.save(question)
     }
 
-
     @DeleteMapping("/questions/{id}")
     fun deleteQuestion(@PathVariable id: UUID): ResponseEntity<Void> {
         questionRepository.deleteById(id)
         return ResponseEntity.ok().build()
-    }
-
-    @PostMapping("/courses")
-    fun createCourse(@RequestBody dto: CreateCourseDTO): ResponseEntity<CourseEntity> {
-        val course = CourseEntity(title = dto.title, targetLanguage = dto.targetLanguage, baseLanguage = dto.baseLanguage)
-        return ResponseEntity.ok(courseRepository.save(course))
     }
 }

@@ -7,44 +7,43 @@ import io.jsonwebtoken.io.Decoders
 import io.jsonwebtoken.security.Keys
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import java.security.Key
-import java.util.*
+import java.util.Date
+import javax.crypto.SecretKey   // 👈 IMPORTANTE: usar SecretKey
 
 @Service
 class JwtService {
 
-    // Secreto de firma obtenido de application.yml (DEBES AGREGARLO ALLÍ)
     @Value("\${application.security.jwt.secret-key}")
     private lateinit var secretKey: String
 
     @Value("\${application.security.jwt.expiration}")
-    private val jwtExpiration: Long = 86400000 // 24 horas en ms
+    private val jwtExpiration: Long = 86400000 // 24 horas
 
-    // --- Métodos de Extracción ---
+    // ============ EXTRACCIÓN DE CLAIMS ============
 
-    fun extractUsername(token: String): String = extractClaim(token, Claims::getSubject)
+    fun extractUsername(token: String): String =
+        extractClaim(token) { it.subject }
 
-    // Extracción de la ID del usuario (lo que usamos como subject)
-    fun extractUserId(token: String): String = extractClaim(token, Claims::getSubject)
+    fun extractUserId(token: String): String =
+        extractClaim(token) { it.subject }
 
-    fun extractClaim(token: String, claimsResolver: (Claims) -> String): String {
+    fun <T> extractClaim(token: String, claimsResolver: (Claims) -> T): T {
         val claims = extractAllClaims(token)
         return claimsResolver(claims)
     }
 
     private fun extractAllClaims(token: String): Claims {
         return Jwts
-            .parser()
-            .setSigningKey(signingKey())
+            .parser()                      // ✅ API nueva 0.12.x
+            .verifyWith(signingKey())      // ✅ ahora devuelve SecretKey
             .build()
-            .parseClaimsJws(token)
-            .body
+            .parseSignedClaims(token)      // ✅ reemplaza a parseClaimsJws
+            .payload                       // ✅ en vez de body
     }
 
-    // --- Métodos de Generación y Validación ---
+    // ============ GENERACIÓN / VALIDACIÓN ============
 
     fun generateToken(user: UserEntity): String {
-        // Usamos el ID del usuario como 'subject' del JWT
         val claims: Map<String, Any> = mapOf(
             "role" to user.role.name,
             "fullName" to user.fullName
@@ -54,33 +53,36 @@ class JwtService {
 
     fun isTokenValid(token: String, user: UserEntity): Boolean {
         val userIdInToken = extractUserId(token)
-        // Compara el ID del token con el ID del usuario cargado (del DB/cache)
         return userIdInToken == user.id.toString() && !isTokenExpired(token)
     }
 
-    private fun isTokenExpired(token: String): Boolean {
-        return extractExpiration(token).before(Date())
-    }
+    private fun isTokenExpired(token: String): Boolean =
+        extractExpiration(token).before(Date())
 
-    private fun extractExpiration(token: String): Date {
-        return extractAllClaims(token).expiration
-    }
+    private fun extractExpiration(token: String): Date =
+        extractAllClaims(token).expiration
 
-    // --- Métodos de Firma ---
+    // ============ FIRMA DEL TOKEN ============
 
-    private fun buildToken(claims: Map<String, Any>, user: UserEntity, expiration: Long): String {
+    private fun buildToken(
+        claims: Map<String, Any>,
+        user: UserEntity,
+        expiration: Long
+    ): String {
+        val now = System.currentTimeMillis()
+
         return Jwts
             .builder()
-            .setClaims(claims)
-            .setSubject(user.id.toString()) // Sujeto es el ID del usuario
-            .setIssuedAt(Date(System.currentTimeMillis()))
-            .setExpiration(Date(System.currentTimeMillis() + expiration))
-            .signWith(signingKey(), io.jsonwebtoken.SignatureAlgorithm.HS256)
+            .claims(claims)
+            .subject(user.id.toString())
+            .issuedAt(Date(now))
+            .expiration(Date(now + expiration))
+            .signWith(signingKey())    // ✅ SecretKey, infiere HS256
             .compact()
     }
 
-    private fun signingKey(): Key {
+    private fun signingKey(): SecretKey {
         val keyBytes = Decoders.BASE64.decode(secretKey)
-        return Keys.hmacShaKeyFor(keyBytes)
+        return Keys.hmacShaKeyFor(keyBytes)   // ✅ esto ya es SecretKey
     }
 }
