@@ -7,8 +7,8 @@ import com.duolingo.clone.language_backend.repository.UnitRepository
 import com.duolingo.clone.language_backend.repository.CourseRepository
 import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.service.CourseService
-import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal   // 👈 IMPORTANTE
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
 
@@ -17,9 +17,16 @@ import java.util.UUID
 class CourseController(
     private val courseService: CourseService,
     private val unitRepository: UnitRepository,
-    private val courseRepository: CourseRepository, // 👈 nuevo
-    private val userRepository: UserRepository      // 👈 nuevo
+    private val courseRepository: CourseRepository,
+    private val userRepository: UserRepository
 ) {
+
+    // 🔹 NUEVO: cursos del profesor logueado
+    @GetMapping("/my")
+    fun getMyCourses(@AuthenticationPrincipal userId: String): List<CourseEntity> {
+        val uuid = UUID.fromString(userId)
+        return courseRepository.findByTeacherId(uuid)
+    }
 
     // GET /api/courses
     @GetMapping
@@ -63,9 +70,6 @@ class CourseController(
         return ResponseEntity.ok(courseRepository.save(course))
     }
 
-
-
-    // PUT /api/courses/{id}
     @PutMapping("/{id}")
     fun updateCourse(
         @PathVariable id: UUID,
@@ -85,9 +89,6 @@ class CourseController(
         return ResponseEntity.noContent().build()
     }
 
-    // ==============================
-    //  NUEVO: ASIGNAR PROFESOR
-    // ==============================
     @PostMapping("/{courseId}/assign-teacher/{teacherId}")
     fun assignTeacherToCourse(
         @PathVariable courseId: UUID,
@@ -106,9 +107,6 @@ class CourseController(
         return ResponseEntity.ok("Profesor asignado al curso")
     }
 
-    // ==============================
-    //  NUEVO: ASIGNAR ESTUDIANTE
-    // ==============================
     @PostMapping("/{courseId}/assign-student/{studentId}")
     fun assignStudentToCourse(
         @PathVariable courseId: UUID,

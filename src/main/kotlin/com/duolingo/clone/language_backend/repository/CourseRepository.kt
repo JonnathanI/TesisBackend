@@ -6,4 +6,6 @@ import java.util.UUID
 
 interface CourseRepository : JpaRepository<CourseEntity, UUID> {
     fun findByTitle(title: String): CourseEntity?
+    // 🔹 TODOS los cursos de un profesor concreto
+    fun findByTeacherId(teacherId: UUID): List<CourseEntity>
 }
