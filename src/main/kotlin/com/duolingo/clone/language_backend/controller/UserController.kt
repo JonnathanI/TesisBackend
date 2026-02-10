@@ -1,6 +1,7 @@
 package com.duolingo.clone.language_backend.controller
 
 import com.duolingo.clone.language_backend.dto.*
+import com.duolingo.clone.language_backend.enums.Role
 import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.service.UserService
 import org.springframework.http.ResponseEntity
@@ -250,5 +251,24 @@ class UserController(
             UpdateUserResponse(message = "Estado actualizado correctamente")
         )
     }
+
+    @PatchMapping("/admin/role/{id}")
+    fun updateUserRole(
+        @PathVariable id: UUID,
+        @RequestBody request: UpdateRoleRequest
+    ): ResponseEntity<UpdateUserResponse> {
+
+        val user = userRepository.findById(id)
+            .orElseThrow { RuntimeException("Usuario no encontrado") }
+
+        user.role = Role.valueOf(request.role.uppercase())
+
+        userRepository.save(user)
+
+        return ResponseEntity.ok(
+            UpdateUserResponse("Rol actualizado correctamente")
+        )
+    }
+
 
 }

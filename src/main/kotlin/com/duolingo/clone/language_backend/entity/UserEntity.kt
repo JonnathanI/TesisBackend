@@ -26,7 +26,8 @@ data class UserEntity(
     var passwordHash: String,
 
     @Enumerated(EnumType.STRING)
-    val role: Role = Role.STUDENT,
+    var role: Role,
+
 
     var xpTotal: Long = 0,
     var currentStreak: Int = 0,

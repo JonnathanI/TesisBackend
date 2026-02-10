@@ -30,13 +30,18 @@ class SecurityConfig(
                 it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             }
             .authorizeHttpRequests { auth ->
+
+                // ✅ PRIMERO: liberar todos los OPTIONS
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                 // 1. RUTAS PÚBLICAS
                 auth.requestMatchers("/api/auth/**").permitAll()
-                auth.requestMatchers(HttpMethod.POST, "/api/init/**").permitAll() // DataLoader manual si existe
+                auth.requestMatchers(HttpMethod.POST, "/api/init/**").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/courses/**").permitAll()
 
                 // 2. RUTAS PROFESOR/ADMIN
-                auth.requestMatchers(HttpMethod.GET, "/api/teacher/classrooms/{id}").hasAnyAuthority("TEACHER", "ADMIN", "STUDENT")
+                auth.requestMatchers(HttpMethod.GET, "/api/teacher/classrooms/{id}")
+                    .hasAnyAuthority("TEACHER", "ADMIN", "STUDENT")
                 auth.requestMatchers("/api/teacher/**").hasAnyAuthority("TEACHER", "ADMIN")
                 auth.requestMatchers("/api/admin/**").hasAuthority("ADMIN")
 
@@ -44,12 +49,15 @@ class SecurityConfig(
                 auth.requestMatchers("/api/student/**").authenticated()
                 auth.requestMatchers("/api/progress/**").authenticated()
                 auth.requestMatchers("/api/shop/**").authenticated()
-                auth.requestMatchers("/api/users/**").authenticated() // Perfil, avatar, etc.
+
+                // ❗ ESTA LÍNEA ESTABA BLOQUEANDO EL OPTIONS
+                auth.requestMatchers("/api/users/**").authenticated()
 
                 // 4. OTROS
                 auth.requestMatchers("/h2-console/**", "/error").permitAll()
                 auth.anyRequest().authenticated()
             }
+
             .authenticationProvider(authenticationProvider) // Usamos el provider de AppConfig
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
@@ -60,24 +68,24 @@ class SecurityConfig(
     fun corsConfigurationSource(): UrlBasedCorsConfigurationSource {
         val configuration = CorsConfiguration()
 
-        // 1. Asegúrate de que la URL actual de ngrok esté aquí
         configuration.allowedOrigins = listOf(
             "http://localhost:3000",
             "http://192.168.20.207:3000",
             "https://rex-unantagonised-tommy.ngrok-free.dev"
         )
 
-        configuration.allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS")
-
-        // 2. AGREGAR 'ngrok-skip-browser-warning' A ESTA LISTA
-        configuration.allowedHeaders = listOf(
-            "Authorization",
-            "Content-Type",
-            "Accept",
-            "Origin",
-            "X-Requested-With",
-            "ngrok-skip-browser-warning" // <--- Indispensable
+        // 👇 AQUÍ AGREGAMOS PATCH
+        configuration.allowedMethods = listOf(
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",   // 👈 IMPORTANTE
+            "DELETE",
+            "OPTIONS"
         )
+
+        // Para simplificar, deja que pasen todos los headers del navegador:
+        configuration.allowedHeaders = listOf("*")
 
         configuration.allowCredentials = true
 
@@ -85,4 +93,5 @@ class SecurityConfig(
         source.registerCorsConfiguration("/**", configuration)
         return source
     }
+
 }
