@@ -230,7 +230,7 @@ class UserService(
         return code
     }
 
-    fun bulkRegisterUsers( // Renombrado de Students a Users para ser genérico
+    fun bulkRegisterUsers(
         request: BulkRegisterRequest,
         registeredByUserId: UUID
     ): BulkRegisterResponse {
@@ -242,26 +242,57 @@ class UserService(
         var failureCount = 0
         val errors = mutableListOf<BulkRegistrationError>()
 
-        request.users.forEach { userItem -> // Usamos 'users' del nuevo DTO
+        // 🔍 Log de depuración
+        println("👉 [BULK] total=${request.users.size}, role=${request.roleToAssign}, code='${request.registrationCode}'")
+
+        // Si el código NO está vacío, lo validamos UNA sola vez
+        val normalizedCode = request.registrationCode.trim()
+        if (normalizedCode.isNotEmpty()) {
             try {
-                // Validamos que el código sea coherente con el rol
-                validateCodeForRole(request.registrationCode, request.roleToAssign)
+                validateCodeForRole(normalizedCode, request.roleToAssign)
+            } catch (e: Exception) {
+                // Si el código entero es inválido, marcamos todos como error
+                val msg = "Código inválido para rol ${request.roleToAssign}: ${e.message}"
+                println("❌ [BULK] $msg")
+
+                return BulkRegisterResponse(
+                    totalProcessed = request.users.size,
+                    successCount = 0,
+                    failureCount = request.users.size,
+                    errors = request.users.map { u ->
+                        BulkRegistrationError(
+                            email = u.email,
+                            message = msg
+                        )
+                    }
+                )
+            }
+        }
+
+        request.users.forEach { userItem ->
+            try {
+                val finalPassword = userItem.password?.takeIf { it.isNotBlank() } ?: "Temporal123!"
 
                 createNewUser(
                     email = userItem.email,
-                    password = userItem.password ?: "Temporal123!", // Password por defecto si es null
+                    password = finalPassword,
                     fullName = userItem.fullName,
-                    role = request.roleToAssign, // 👈 Ahora es DINÁMICO
-                    registrationCode = request.registrationCode,
-                    registeredBy = registeredBy, // Aquí pasas la entidad completa
+                    role = request.roleToAssign,
+                    registrationCode = normalizedCode.ifEmpty { null }, // 👈 si está vacío, mandamos null
+                    registeredBy = registeredBy,
                     cedula = userItem.cedula,
                 )
+
                 successCount++
             } catch (e: Exception) {
                 failureCount++
-                errors.add(BulkRegistrationError(userItem.email, e.message ?: "Error desconocido"))
+                val msg = e.message ?: "Error desconocido"
+                println("❌ [BULK] Error al crear ${userItem.email}: $msg")
+                errors.add(BulkRegistrationError(userItem.email, msg))
             }
         }
+
+        println("✅ [BULK] success=$successCount, failure=$failureCount")
 
         return BulkRegisterResponse(
             totalProcessed = request.users.size,
@@ -270,6 +301,7 @@ class UserService(
             errors = errors
         )
     }
+
 
     // Función auxiliar para seguridad
     private fun validateCodeForRole(code: String, role: Role) {
