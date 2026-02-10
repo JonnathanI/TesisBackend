@@ -4,6 +4,7 @@ import com.duolingo.clone.language_backend.entity.AssignmentEntity
 import com.duolingo.clone.language_backend.entity.ClassroomEntity
 import com.duolingo.clone.language_backend.repository.AssignmentRepository
 import com.duolingo.clone.language_backend.repository.ClassroomRepository
+import com.duolingo.clone.language_backend.repository.CourseRepository
 import com.duolingo.clone.language_backend.repository.UserRepository
 import org.springframework.stereotype.Service
 import java.time.LocalDate
@@ -14,7 +15,8 @@ import kotlin.random.Random
 class ClassroomService(
     private val classroomRepository: ClassroomRepository,
     private val userRepository: UserRepository,
-    private val assignmentRepository: AssignmentRepository
+    private val assignmentRepository: AssignmentRepository,
+    private val courseRepository: CourseRepository
 ) {
 
     private fun generateUniqueCode(): String {
@@ -29,15 +31,24 @@ class ClassroomService(
         return code
     }
 
-    fun createClassroom(teacherId: UUID, name: String): ClassroomEntity {
+    fun createClassroom(
+        teacherId: UUID,
+        courseId: UUID,
+        name: String
+    ): ClassroomEntity {
         val teacher = userRepository.findById(teacherId)
             .orElseThrow { RuntimeException("Profesor no encontrado") }
+
+        val course = courseRepository.findById(courseId)
+            .orElseThrow { RuntimeException("Curso no encontrado") }
 
         val newClass = ClassroomEntity(
             name = name,
             code = generateUniqueCode(),
+            course = course,      // 👈 AHORA SÍ
             teacher = teacher
         )
+
         return classroomRepository.save(newClass)
     }
 

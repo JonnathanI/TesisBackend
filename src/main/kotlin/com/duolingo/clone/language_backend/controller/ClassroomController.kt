@@ -1,6 +1,7 @@
 package com.duolingo.clone.language_backend.controller
 
 import com.duolingo.clone.language_backend.dto.ClassroomDetailDTO
+import com.duolingo.clone.language_backend.dto.CreateClassroomRequest
 import com.duolingo.clone.language_backend.dto.StudentSummaryDTO
 import com.duolingo.clone.language_backend.entity.AssignmentEntity
 import com.duolingo.clone.language_backend.entity.ClassroomEntity
@@ -24,14 +25,20 @@ class ClassroomController(private val classroomService: ClassroomService) {
     @PostMapping
     fun createClassroom(
         @AuthenticationPrincipal userId: String,
-        @RequestBody request: Map<String, String>
+        @RequestBody request: CreateClassroomRequest
     ): ResponseEntity<ClassroomEntity> {
-        val teacherId = UUID.fromString(userId)
-        val name = request["name"] ?: return ResponseEntity.badRequest().build()
 
-        val newClass = classroomService.createClassroom(teacherId, name)
+        val teacherId = UUID.fromString(userId)
+
+        val newClass = classroomService.createClassroom(
+            teacherId = teacherId,
+            courseId = request.courseId,  // 👈 ahora sí UUID
+            name = request.name
+        )
+
         return ResponseEntity.ok(newClass)
     }
+
 
     @DeleteMapping("/{id}")
     fun deleteClassroom(@PathVariable id: UUID): ResponseEntity<Void> {

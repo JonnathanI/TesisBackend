@@ -1,7 +1,9 @@
 package com.duolingo.clone.language_backend.controller
 
 import com.duolingo.clone.language_backend.dto.LeaderboardEntryDTO
+import com.duolingo.clone.language_backend.dto.UnitStatusDTO
 import com.duolingo.clone.language_backend.service.ClassroomService
+import com.duolingo.clone.language_backend.service.ProgressService
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.*
@@ -9,7 +11,10 @@ import java.util.UUID
 
 @RestController
 @RequestMapping("/api/student/classrooms")
-class StudentClassroomController(private val classroomService: ClassroomService) {
+class StudentClassroomController(
+    private val classroomService: ClassroomService,
+    private val progressService: ProgressService
+) {
 
     // UNIRSE A CLASE
     @PostMapping("/join")
@@ -99,5 +104,23 @@ class StudentClassroomController(private val classroomService: ClassroomService)
             }
 
         return ResponseEntity.ok(leaderboard)
+    }
+
+    @GetMapping("/{id}/units")
+    fun getClassroomUnits(
+        @AuthenticationPrincipal userId: String,
+        @PathVariable id: UUID
+    ): ResponseEntity<List<UnitStatusDTO>> {
+        val studentId = UUID.fromString(userId)
+
+        // Verificamos que el alumno pertenezca a la clase
+        val classroom = classroomService.getStudentClassroomDetails(studentId, id)
+
+        // 👇 IMPORTANTE: que Classroom tenga un course asociado
+        val courseId = classroom.course.id
+            ?: throw RuntimeException("La clase no tiene curso asignado")
+
+        val units = progressService.getCourseProgress(courseId, studentId)
+        return ResponseEntity.ok(units)
     }
 }

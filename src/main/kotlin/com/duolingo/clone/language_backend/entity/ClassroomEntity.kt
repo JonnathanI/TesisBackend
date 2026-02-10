@@ -17,6 +17,11 @@ data class ClassroomEntity(
     @Column(nullable = false, unique = true)
     val code: String,
 
+    // 🔹 RELACIÓN CON EL CURSO
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "course_id", nullable = false)
+    var course: CourseEntity,
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id", nullable = false)
     @JsonIgnore // 2. IMPORTANTE: Añade esta anotación
