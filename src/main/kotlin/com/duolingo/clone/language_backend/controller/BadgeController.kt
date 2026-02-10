@@ -35,4 +35,10 @@ class BadgeController(
     fun getUserBadges(@PathVariable userId: String): List<BadgeDTO> {
         return badgeService.getBadgesOfUser(UUID.fromString(userId))
     }
+
+    @GetMapping("/all")
+    fun getAllBadges(): List<BadgeDTO> {
+        return badgeService.getAllBadges()
+    }
+
 }

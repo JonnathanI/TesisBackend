@@ -44,4 +44,17 @@ class BadgeService(
             )
         }
     }
+
+    fun getAllBadges(): List<BadgeDTO> {
+        return badgeRepo.findAll().map {
+            BadgeDTO(
+                id = it.id.toString(),
+                code = it.code,
+                title = it.title,
+                description = it.description,
+                earnedAt = null  // porque no está obtenida
+            )
+        }
+    }
+
 }

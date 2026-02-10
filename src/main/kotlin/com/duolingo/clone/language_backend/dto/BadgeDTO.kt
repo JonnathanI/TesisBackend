@@ -5,5 +5,6 @@ data class BadgeDTO(
     val code: String,
     val title: String,
     val description: String,
-    val earnedAt: Long
+    val earnedAt: Long? // null si NO está desbloqueada
 )
+
