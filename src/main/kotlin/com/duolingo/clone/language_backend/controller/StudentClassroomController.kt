@@ -1,7 +1,6 @@
 package com.duolingo.clone.language_backend.controller
 
-import com.duolingo.clone.language_backend.dto.LeaderboardEntryDTO
-import com.duolingo.clone.language_backend.dto.UnitStatusDTO
+import com.duolingo.clone.language_backend.dto.*
 import com.duolingo.clone.language_backend.service.ClassroomService
 import com.duolingo.clone.language_backend.service.ProgressService
 import org.springframework.http.ResponseEntity
@@ -50,35 +49,56 @@ class StudentClassroomController(
     }
 
     // VER DETALLE DE CLASE (TAREAS)
+    // StudentClassroomController.kt
+
+    // VER DETALLE DE CLASE (ALUMNO: COMPAÑEROS + TAREAS)
     @GetMapping("/{id}")
     fun getClassroomDetails(
         @AuthenticationPrincipal userId: String,
         @PathVariable id: UUID
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<StudentClassroomDetailDTO> {
         val studentId = UUID.fromString(userId)
 
-        try {
+        return try {
             val classroom = classroomService.getStudentClassroomDetails(studentId, id)
 
-            val response = mapOf(
-                "id" to classroom.id!!,
-                "name" to classroom.name,
-                "teacherName" to classroom.teacher.fullName,
-                "assignments" to classroom.assignments.map { a ->
-                    mapOf(
-                        "id" to a.id!!,
-                        "title" to a.title,
-                        "description" to a.description,
-                        "xpReward" to a.xpReward,
-                        "dueDate" to (a.dueDate?.toString() ?: "Sin fecha")
-                    )
-                }
+            val studentsList = classroom.students.map { s ->
+                StudentSummaryDTO(
+                    id = s.id!!,
+                    fullName = s.fullName,
+                    email = s.email,
+                    xpTotal = s.xpTotal.toLong(),
+                    currentStreak = s.currentStreak
+                )
+            }
+
+            val assignmentsList = classroom.assignments.map { a ->
+                AssignmentSummaryDTO(
+                    id = a.id!!,
+                    title = a.title,
+                    description = a.description,
+                    xpReward = a.xpReward,
+                    dueDate = a.dueDate?.toString() ?: "Sin fecha"
+                )
+            }
+
+            val dto = StudentClassroomDetailDTO(
+                id = classroom.id!!,
+                name = classroom.name,
+                code = classroom.code,
+                teacherName = classroom.teacher.fullName,
+                students = studentsList,
+                assignments = assignmentsList
             )
-            return ResponseEntity.ok(response)
+
+            ResponseEntity.ok(dto)
         } catch (e: Exception) {
-            return ResponseEntity.status(403).build()
+            ResponseEntity.status(403).build()
         }
     }
+
+
+
 
     // --- ¡ESTE ES EL ENDPOINT QUE TE FALTA! (RANKING) ---
     @GetMapping("/{id}/leaderboard")

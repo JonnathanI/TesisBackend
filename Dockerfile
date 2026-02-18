@@ -1,33 +1,21 @@
-# ---------- FASE DE BUILD ----------
-FROM eclipse-temurin:17-jdk-alpine AS build
+# ===== BUILD =====
+FROM maven:3.9.8-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copiamos archivos necesarios para Maven Wrapper
-COPY mvnw .
-COPY .mvn .mvn
 COPY pom.xml .
+COPY src ./src
 
-# Damos permisos de ejecución al wrapper
-RUN chmod +x mvnw
+RUN mvn clean package -DskipTests
 
-# Descargamos dependencias y compilamos
-RUN ./mvnw -q -DskipTests package
-
-# Copiamos todo el código fuente y recompilamos (por si acaso)
-COPY src src
-RUN ./mvnw -q -DskipTests package
-
-# ---------- FASE DE RUNTIME ----------
-FROM eclipse-temurin:17-jre-alpine
+# ===== RUN =====
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
-# Copiamos el jar generado desde la fase de build
 COPY --from=build /app/target/*.jar app.jar
 
-# Render expone el puerto en la variable PORT
-ENV PORT=8081
-
+# Cambia a 8080 si tu app usa 8080
 EXPOSE 8081
 
-# Ejecutamos Spring Boot usando la variable PORT
-CMD ["sh", "-c", "java -Dserver.port=$PORT -jar app.jar"]
+ENV SPRING_PROFILES_ACTIVE=docker
+
+ENTRYPOINT ["java","-jar","app.jar"]

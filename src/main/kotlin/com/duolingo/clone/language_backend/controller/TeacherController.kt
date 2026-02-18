@@ -1,5 +1,6 @@
 package com.duolingo.clone.language_backend.controller
 
+import com.duolingo.clone.language_backend.dto.GenerateClassroomCodeRequest
 import com.duolingo.clone.language_backend.dto.StudentDataDTO
 import com.duolingo.clone.language_backend.service.UserService
 import org.springframework.http.ResponseEntity
@@ -21,15 +22,27 @@ class TeacherController(private val userService: UserService) {
 
     @PostMapping("/generate-classroom-code")
     fun generateCode(
-        @AuthenticationPrincipal principal: String
+        @AuthenticationPrincipal principal: String,
+        @RequestBody body: GenerateClassroomCodeRequest
     ): ResponseEntity<Map<String, String>> {
 
         val teacherUuid = UUID.fromString(principal)
 
-        val code = userService.generateRegistrationCode(teacherUuid)
+        // si te mandan 0 o negativo, aseguramos mínimo 1
+        val safeMaxUses = if (body.maxUses <= 0) 1 else body.maxUses
 
-        return ResponseEntity.ok(mapOf("code" to code))
+        val code = userService.generateRegistrationCode(
+            teacherId = teacherUuid,
+            maxUses = safeMaxUses
+        )
 
+        // el front solo necesita "code", pero puedes devolver ambos
+        return ResponseEntity.ok(
+            mapOf(
+                "code" to code,
+                "maxUses" to safeMaxUses.toString()
+            )
+        )
     }
     @GetMapping("/students/{studentId}/progress")
     fun getStudentProgressDetail(@PathVariable studentId: UUID): ResponseEntity<Map<String, Any>> {
