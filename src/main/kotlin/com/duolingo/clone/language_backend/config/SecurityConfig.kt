@@ -70,8 +70,7 @@ class SecurityConfig(
 
         configuration.allowedOrigins = listOf(
             "http://localhost:3000",
-            "http://192.168.20.207:3000",
-            "https://rex-unantagonised-tommy.ngrok-free.dev"
+            "https://tesisfront-26h1.onrender.com"
         )
 
         // 👇 AQUÍ AGREGAMOS PATCH
