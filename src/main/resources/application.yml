@@ -26,30 +26,36 @@ spring:
   flyway:
     enabled: false
 
+  # CONFIGURACIÓN DE CORREO (CORREGIDA PARA RENDER)
   mail:
     host: smtp.gmail.com
-    port: 465
+    port: 587
     username: inaguasojonnathan6@gmail.com
     password: dutxhupaitaajlvy
     properties:
       mail:
         smtp:
           auth: true
-          ssl:
+          starttls:
             enable: true
-          socketFactory:
-            port: 465
-            class: javax.net.ssl.SSLSocketFactory
+            required: true
+        # Se eliminaron las propiedades de SSL directo/SocketFactory
+        # porque Render bloquea el puerto 465 frecuentemente.
 
-# Configuración de Seguridad (JWT)
+# ================================
+# 💡 URL DEL FRONTEND (PARA RECUPERAR CONTRASEÑA)
+# ================================
 application:
+  frontend-url: https://tesisfront-26h1.onrender.com
+
   security:
     jwt:
       secret-key: aHRtbC10ZXNpc2R1b2xpbmdvY2xvbmUtdW5pdmVyc2l0YXJpYS1uby11c2FyLWVzdGEtY2xhdmU=
       expiration: 86400000
 
-# CREDENCIALES DE CLOUDINARY
-# Reemplaza estos valores con los de tu consola de Cloudinary
+# ================================
+# ☁ CLOUDINARY
+# ================================
 cloudinary:
   cloud-name: de95r2oqx
   api-key: 987292596382878
