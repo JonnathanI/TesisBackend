@@ -17,12 +17,11 @@ class EmailService(
             mailSender.send(message)
             println("✅ Correo enviado exitosamente a $to")
         } catch (e: Exception) {
-            // Imprimimos el error en la consola del backend, pero NO lanzamos la excepción
-            println("⚠️ ERROR DE RED: No se pudo enviar el correo real a $to debido a un bloqueo de puerto.")
-            println("🔗 PERO AQUÍ TIENES EL LINK PARA TU PRUEBA:")
-            println("--------------------------------------------------")
+            println("❌ ERROR REAL DE SMTP: ${e.message}") // 💡 Esto te dirá si es "Auth Failed" o "Timeout"
+            e.printStackTrace() // Esto imprimirá el rastro completo en Render
+
+            println("🔗 LINK DE RESPALDO (Copiado de la consola):")
             println(body)
-            println("--------------------------------------------------")
         }
     }
 }

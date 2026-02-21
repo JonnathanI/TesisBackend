@@ -3,6 +3,7 @@ package com.duolingo.clone.language_backend.service
 import com.duolingo.clone.language_backend.entity.PasswordResetTokenEntity
 import com.duolingo.clone.language_backend.repository.PasswordResetTokenRepository
 import com.duolingo.clone.language_backend.repository.UserRepository
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
@@ -13,16 +14,16 @@ class PasswordResetService(
     private val userRepository: UserRepository,
     private val tokenRepository: PasswordResetTokenRepository,
     private val emailService: EmailService,
-    private val passwordEncoder: PasswordEncoder
+    private val passwordEncoder: PasswordEncoder,
+    @Value("\${application.frontend-url}")
+    private val frontendUrl: String
 ) {
 
     fun requestPasswordReset(email: String) {
-
         val user = userRepository.findByEmail(email.lowercase().trim())
-            ?: return // 🔒 No revelar si existe
+            ?: return
 
         val token = UUID.randomUUID().toString()
-
         val resetToken = PasswordResetTokenEntity(
             token = token,
             user = user,
@@ -31,7 +32,8 @@ class PasswordResetService(
 
         tokenRepository.save(resetToken)
 
-        val resetLink = "http://localhost:3000/reset-password?token=$token"
+        // ✅ Ahora usamos la variable dinámica
+        val resetLink = "$frontendUrl/reset-password?token=$token"
 
         emailService.sendEmail(
             user.email,
@@ -44,8 +46,6 @@ class PasswordResetService(
             $resetLink
 
             Este enlace expira en 5 minutos.
-
-            Si no solicitaste esto, ignora este mensaje.
             """.trimIndent()
         )
     }
