@@ -34,6 +34,9 @@ class SecurityConfig(
                 // ✅ PRIMERO: liberar todos los OPTIONS
                 auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                // ✅ RUTAS DE WEBSOCKET (SockJS usa /ws, /ws/info, /ws/xxxx)
+                auth.requestMatchers("/ws/**").permitAll()
+
                 // 1. RUTAS PÚBLICAS
                 auth.requestMatchers("/api/auth/**").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/init/**").permitAll()
@@ -49,8 +52,6 @@ class SecurityConfig(
                 auth.requestMatchers("/api/student/**").authenticated()
                 auth.requestMatchers("/api/progress/**").authenticated()
                 auth.requestMatchers("/api/shop/**").authenticated()
-
-                // ❗ ESTA LÍNEA ESTABA BLOQUEANDO EL OPTIONS
                 auth.requestMatchers("/api/users/**").authenticated()
 
                 // 4. OTROS
@@ -58,7 +59,7 @@ class SecurityConfig(
                 auth.anyRequest().authenticated()
             }
 
-            .authenticationProvider(authenticationProvider) // Usamos el provider de AppConfig
+            .authenticationProvider(authenticationProvider)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
@@ -73,24 +74,20 @@ class SecurityConfig(
             "https://tesisfront-26h1.onrender.com"
         )
 
-        // 👇 AQUÍ AGREGAMOS PATCH
         configuration.allowedMethods = listOf(
             "GET",
             "POST",
             "PUT",
-            "PATCH",   // 👈 IMPORTANTE
+            "PATCH",
             "DELETE",
             "OPTIONS"
         )
 
-        // Para simplificar, deja que pasen todos los headers del navegador:
         configuration.allowedHeaders = listOf("*")
-
         configuration.allowCredentials = true
 
         val source = UrlBasedCorsConfigurationSource()
         source.registerCorsConfiguration("/**", configuration)
         return source
     }
-
 }

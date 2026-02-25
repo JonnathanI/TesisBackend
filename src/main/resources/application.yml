@@ -52,7 +52,8 @@ application:
     jwt:
       secret-key: aHRtbC10ZXNpc2R1b2xpbmdvY2xvbmUtdW5pdmVyc2l0YXJpYS1uby11c2FyLWVzdGEtY2xhdmU=
       expiration: 86400000
-
+fcm:
+  server-key: TU_SERVER_KEY_DE_FIREBASE_AQUI
 # ================================
 # ☁ CLOUDINARY
 # ================================

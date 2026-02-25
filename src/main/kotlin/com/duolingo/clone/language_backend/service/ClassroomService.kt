@@ -2,11 +2,13 @@ package com.duolingo.clone.language_backend.service
 
 import com.duolingo.clone.language_backend.entity.AssignmentEntity
 import com.duolingo.clone.language_backend.entity.ClassroomEntity
+import com.duolingo.clone.language_backend.entity.NotificationType
 import com.duolingo.clone.language_backend.repository.AssignmentRepository
 import com.duolingo.clone.language_backend.repository.ClassroomRepository
 import com.duolingo.clone.language_backend.repository.CourseRepository
 import com.duolingo.clone.language_backend.repository.UserRepository
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.util.UUID
 import kotlin.random.Random
@@ -16,7 +18,8 @@ class ClassroomService(
     private val classroomRepository: ClassroomRepository,
     private val userRepository: UserRepository,
     private val assignmentRepository: AssignmentRepository,
-    private val courseRepository: CourseRepository
+    private val courseRepository: CourseRepository,
+    private val notificationService: NotificationService   // 👈 inyectamos notificaciones
 ) {
 
     private fun generateUniqueCode(): String {
@@ -45,7 +48,7 @@ class ClassroomService(
         val newClass = ClassroomEntity(
             name = name,
             code = generateUniqueCode(),
-            course = course,      // 👈 AHORA SÍ
+            course = course,
             teacher = teacher
         )
 
@@ -73,17 +76,15 @@ class ClassroomService(
         }
     }
 
-    // --- ¡ESTA ES LA FUNCIÓN QUE FALTABA PARA EL ERROR DEL CONTROLADOR! ---
+    // --- Aulas del estudiante ---
     fun getStudentClassrooms(studentId: UUID): List<ClassroomEntity> {
         return classroomRepository.findAllByStudentsId(studentId)
     }
-    // ---------------------------------------------------------------------
 
     fun addStudentByEmail(classroomId: UUID, studentEmail: String) {
         val classroom = classroomRepository.findById(classroomId)
             .orElseThrow { RuntimeException("Clase no encontrada") }
 
-        // CORRECCIÓN: Usamos el operador Elvis (?:) porque findByEmail puede devolver null
         val student = userRepository.findByEmail(studentEmail)
             ?: throw RuntimeException("No existe un usuario con el email: $studentEmail")
 
@@ -93,7 +94,15 @@ class ClassroomService(
         }
     }
 
-    fun createAssignment(classroomId: UUID, title: String, desc: String, xp: Int, date: LocalDate?): AssignmentEntity {
+    // 🔥 AQUÍ SE CREA LA TAREA Y LAS NOTIFICACIONES
+    @Transactional
+    fun createAssignment(
+        classroomId: UUID,
+        title: String,
+        desc: String,
+        xp: Int,
+        date: LocalDate?
+    ): AssignmentEntity {
         val classroom = classroomRepository.findById(classroomId)
             .orElseThrow { RuntimeException("Clase no encontrada") }
 
@@ -104,7 +113,21 @@ class ClassroomService(
             dueDate = date,
             classroom = classroom
         )
-        return assignmentRepository.save(assignment)
+
+        val savedAssignment = assignmentRepository.save(assignment)
+
+        // 🔔 Notificación para cada estudiante del aula
+        classroom.students.forEach { student ->
+            notificationService.createNotification(
+                user = student,
+                type = NotificationType.TASK_ASSIGNED,  // 👈 AQUÍ EL ENUM CORRECTO
+                title = "Nueva tarea en ${classroom.name}",
+                message = "Se ha creado la tarea \"$title\" en tu grupo ${classroom.name}.",
+                relatedId = savedAssignment.id.toString()
+            )
+        }
+
+        return savedAssignment
     }
 
     fun getAssignments(classroomId: UUID): List<AssignmentEntity> {
@@ -114,7 +137,7 @@ class ClassroomService(
     fun getClassroomDetails(classroomId: UUID): ClassroomEntity {
         val classroom = classroomRepository.findById(classroomId)
             .orElseThrow { RuntimeException("Clase no encontrada") }
-        classroom.students.size
+        classroom.students.size   // fuerza carga LAZY
         return classroom
     }
 
@@ -126,7 +149,8 @@ class ClassroomService(
         if (!isEnrolled) {
             throw RuntimeException("No tienes permiso para ver esta clase.")
         }
-        classroom.assignments.size
+
+        classroom.assignments.size // fuerza carga LAZY
         return classroom
     }
 }

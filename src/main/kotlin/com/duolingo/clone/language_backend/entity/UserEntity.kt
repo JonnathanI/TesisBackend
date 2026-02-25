@@ -57,6 +57,9 @@ data class UserEntity(
     @Enumerated(EnumType.STRING)
     var registeredByRole: Role,
 
+    @Column(name = "fcm_token", length = 400)
+    var fcmToken: String? = null,
+
     @Column(nullable = false, unique = true, length = 10)
     var cedula: String,
 ) : UserDetails {
