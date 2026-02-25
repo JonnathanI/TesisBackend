@@ -3,12 +3,14 @@ package com.duolingo.clone.language_backend.controller
 import com.duolingo.clone.language_backend.dto.EvaluationRequest
 import com.duolingo.clone.language_backend.entity.EvaluationAssignmentEntity
 import com.duolingo.clone.language_backend.entity.EvaluationEntity
-import com.duolingo.clone.language_backend.repository.EvaluationAssignmentRepository // 👈 Importa el nuevo
+import com.duolingo.clone.language_backend.entity.NotificationType
+import com.duolingo.clone.language_backend.repository.EvaluationAssignmentRepository
 import com.duolingo.clone.language_backend.repository.ClassroomRepository
 import com.duolingo.clone.language_backend.repository.EvaluationRepository
 import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.service.CloudinaryService
 import com.duolingo.clone.language_backend.service.EvaluationService
+import com.duolingo.clone.language_backend.service.NotificationService   // 👈 IMPORTANTE
 import jakarta.transaction.Transactional
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -22,11 +24,12 @@ class EvaluationController(
     private val evaluationService: EvaluationService,
     private val evaluationRepository: EvaluationRepository,
     private val classroomRepository: ClassroomRepository,
-    // CAMBIO CRÍTICO: Usar el repositorio específico para evaluaciones
     private val assignmentRepository: EvaluationAssignmentRepository,
     private val userRepository: UserRepository,
-    private val cloudinaryService: CloudinaryService
+    private val cloudinaryService: CloudinaryService,
+    private val notificationService: NotificationService               // 👈 INYECTAMOS EL SERVICE
 ) {
+
     @PostMapping
     fun createFullEvaluation(@RequestBody request: EvaluationRequest): ResponseEntity<EvaluationEntity> {
         val saved = evaluationService.createEvaluation(request)
@@ -38,12 +41,12 @@ class EvaluationController(
         return ResponseEntity.ok(evaluationRepository.findAll())
     }
 
-    // Ahora findByStudentIdAndCompletedFalse funcionará porque el repo es el correcto
     @GetMapping("/pending")
     fun getMyPendingEvaluations(@RequestParam studentId: UUID): ResponseEntity<List<EvaluationAssignmentEntity>> {
         return ResponseEntity.ok(assignmentRepository.findByStudentIdAndCompletedFalse(studentId))
     }
 
+    // 🔹 ASIGNAR A UN AULA (CON NOTIFICACIÓN PUSH)
     @PostMapping("/{evaluationId}/assign/{classroomId}")
     @Transactional
     fun assignToClassroom(
@@ -66,12 +69,23 @@ class EvaluationController(
             )
         }
 
-        // Ya no habrá "Type mismatch" aquí
         assignmentRepository.saveAll(assignments)
+
+        // 👇 AQUÍ DISPARAMOS NOTIFICACIÓN PARA CADA ALUMNO DEL AULA
+        students.forEach { student ->
+            notificationService.createNotification(
+                user = student,
+                type = NotificationType.EVALUATION_ASSIGNED,
+                title = "Nueva evaluación: ${evaluation.title}",
+                message = "Tienes una nueva evaluación en el grupo ${classroom.name}.",
+                relatedId = evaluation.id.toString()
+            )
+        }
 
         return ResponseEntity.ok("Asignado correctamente a ${students.size} alumnos")
     }
 
+    // 🔹 ASIGNAR A UN SOLO ALUMNO (CON NOTIFICACIÓN PUSH)
     @PostMapping("/{evaluationId}/assign-student/{studentId}")
     @Transactional
     fun assignToStudent(
@@ -81,7 +95,6 @@ class EvaluationController(
         val evaluation = evaluationRepository.findById(evaluationId)
             .orElseThrow { RuntimeException("Evaluación no encontrada") }
 
-        // Buscamos al usuario (puedes usar tu UserRepository)
         val student = userRepository.findById(studentId)
             .orElseThrow { RuntimeException("Estudiante no encontrado") }
 
@@ -93,9 +106,17 @@ class EvaluationController(
 
         assignmentRepository.save(assignment)
 
+        // 👇 AQUÍ DISPARAMOS NOTIFICACIÓN SOLO A ESE ALUMNO
+        notificationService.createNotification(
+            user = student,
+            type = NotificationType.EVALUATION_ASSIGNED,
+            title = "Nueva evaluación: ${evaluation.title}",
+            message = "Tienes una nueva evaluación asignada por tu docente.",
+            relatedId = evaluation.id.toString()
+        )
+
         return ResponseEntity.ok("Evaluación asignada correctamente a ${student.fullName}")
     }
-
 
     @GetMapping("/assignment/{assignmentId}")
     fun getAssignmentDetails(@PathVariable assignmentId: UUID): ResponseEntity<EvaluationAssignmentEntity> {
@@ -110,7 +131,6 @@ class EvaluationController(
         @RequestParam(required = false, defaultValue = "misc") folder: String
     ): ResponseEntity<String> {
         val url = cloudinaryService.uploadFile(file, folder)
-        return ResponseEntity.ok(url) // 👈 Devuelves solo la URL
+        return ResponseEntity.ok(url)
     }
-
 }
