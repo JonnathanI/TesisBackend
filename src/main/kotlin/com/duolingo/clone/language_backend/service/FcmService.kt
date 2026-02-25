@@ -5,7 +5,6 @@ import org.springframework.stereotype.Service
 import java.net.HttpURLConnection
 import java.net.URL
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-
 @Service
 class FcmService {
 
@@ -27,14 +26,17 @@ class FcmService {
         body: String,
         data: Map<String, String> = emptyMap()
     ) {
+        // 👇 Mezclamos title/body dentro del data
+        val mergedData = data.toMutableMap().apply {
+            put("title", title)
+            put("body", body)
+        }
+
+        // 👇 MENSAJE SOLO DE DATA (sin "notification")
         val message = mapOf(
             "message" to mapOf(
                 "token" to token,
-                "notification" to mapOf(
-                    "title" to title,
-                    "body" to body
-                ),
-                "data" to data
+                "data" to mergedData
             )
         )
 
@@ -44,14 +46,20 @@ class FcmService {
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.setRequestProperty("Authorization", "Bearer ${getAccessToken()}")
-        connection.setRequestProperty("Content-Type", "application/json; UTF-8")
+        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
         connection.doOutput = true
 
         connection.outputStream.use { os ->
             os.write(json.toByteArray())
         }
 
-        val response = connection.inputStream.bufferedReader().readText()
-        println("🔥 FCM Response: $response")
+        val responseCode = connection.responseCode
+        val responseBody = try {
+            connection.inputStream.bufferedReader().readText()
+        } catch (e: Exception) {
+            connection.errorStream?.bufferedReader()?.readText() ?: e.message.orEmpty()
+        }
+
+        println("🔥 FCM Response ($responseCode): $responseBody")
     }
 }
