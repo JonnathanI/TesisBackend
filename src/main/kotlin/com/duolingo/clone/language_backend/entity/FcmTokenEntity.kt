@@ -13,7 +13,7 @@ data class FcmTokenEntity(
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    val user: UserEntity,
+    var user: UserEntity,   // 🔥 CAMBIAR val → var
 
     @Column(nullable = false, unique = true, length = 300)
     var token: String,
