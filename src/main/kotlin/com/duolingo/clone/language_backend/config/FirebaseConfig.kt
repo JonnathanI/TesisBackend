@@ -4,27 +4,35 @@ import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.io.ClassPathResource
+import java.io.ByteArrayInputStream
 
 @Configuration
 class FirebaseConfig {
 
     init {
         try {
-            // El archivo debe estar en src/main/resources/firebase-credentials.json
-            val serviceAccount = ClassPathResource("firebase-credentials.json").inputStream
+            val credentialsJson = System.getenv("FIREBASE_CREDENTIALS")
 
-            val options = FirebaseOptions.builder()
-                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                .build()
+            if (!credentialsJson.isNullOrBlank()) {
 
-            if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseApp.initializeApp(options)
-                println("🔥 Firebase Admin inicializado")
+                val serviceAccountStream = ByteArrayInputStream(credentialsJson.toByteArray())
+
+                val options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(serviceAccountStream))
+                    .build()
+
+                if (FirebaseApp.getApps().isEmpty()) {
+                    FirebaseApp.initializeApp(options)
+                    println("🔥 Firebase Admin inicializado correctamente (ENV)")
+                }
+
+            } else {
+                println("⚠️ FIREBASE_CREDENTIALS no está configurado. Firebase Admin NO se inicializa.")
             }
+
         } catch (ex: Exception) {
             ex.printStackTrace()
-            println("❌ Error inicializando Firebase Admin")
+            println("❌ Error inicializando Firebase Admin (ENV)")
         }
     }
 }
