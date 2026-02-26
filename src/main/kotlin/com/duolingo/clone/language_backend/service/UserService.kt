@@ -600,33 +600,65 @@ class UserService(
 
         return challenge.title to challenge.snippet
     }
-/*
-    fun toSingleChallengeDTO(
-        challenge: DailySqlChallengeEntity,
-        stats: DailyStats
-    ): SingleChallengeDTO {
+    fun getTodayStats(userId: UUID): DailyStats {
+        val today = LocalDate.now(zone)
+        val startOfDay = today.atStartOfDay(zone).toInstant()
+        val endOfDay = today.plusDays(1).atStartOfDay(zone).toInstant()
 
-        val progress = when (challenge.type.uppercase()) {
-            "XP"       -> stats.dailyXp
-            "TIME"     -> stats.dailyMinutes
-            "PERFECT"  -> stats.perfectLessons
-            "LESSONS"  -> stats.lessonsToday
-            "UNITS"    -> stats.unitsPracticedToday
-            "STREAK"   -> stats.currentStreak
-            "LINGS"    -> stats.lingotsGainedToday
-            "HEARTS"   -> stats.heartsCount
-            "CORRECT"  -> stats.correctAnswersToday
-            else       -> 0
+        // Traemos el progreso de hoy
+        val lessonProgressList =
+            userLessonProgressRepository.findByUserIdAndCompletedAtBetween(
+                userId,
+                startOfDay,
+                endOfDay
+            )
+                // Opcional: si quieres contar solo las lecciones marcadas como completadas
+                .filter { it.isCompleted }
+
+        val lessonsToday = lessonProgressList.size
+
+        // 🎯 XP del día: mismo criterio que usaste en getDetailedProgressForStudent
+        // XP por lección = 10 base + 2 por cada respuesta correcta
+        val dailyXp = lessonProgressList.sumOf { progress ->
+            val correct = progress.correctAnswers ?: 0
+            10 + (correct * 2)
         }
 
-        val target = (challenge.goalValue ?: 1).coerceAtLeast(1)
+        // ⏱ minutos: aproximamos 5 minutos por lección completada
+        val minutesPerLesson = 5
+        val dailyMinutes = lessonsToday * minutesPerLesson
 
-        return SingleChallengeDTO(
-            id = (challenge.id ?: 0L).toInt(),
-            type = challenge.type,
-            title = challenge.title,
-            progress = progress.coerceAtMost(target),
-            total = target
+        // Lecciones PERFECTAS (0 errores)
+        val perfectLessons = lessonProgressList.count { (it.mistakesCount ?: 0) == 0 }
+
+        // Unidades practicadas distintas
+        val unitsPracticed = lessonProgressList
+            .mapNotNull { it.lesson.unit?.id } // por si unit puede ser null
+            .distinct()
+            .size
+
+        // Respuestas correctas totales del día
+        val correctAnswers = lessonProgressList.sumOf { it.correctAnswers ?: 0 }
+
+        // Datos del usuario
+        val user = userRepository.findById(userId)
+            .orElseThrow { RuntimeException("Usuario no encontrado") }
+
+        val currentStreak = (user.currentStreak ?: 0).toInt()
+        val heartsCount = user.heartsCount
+        val lingotsToday = 0 // si no trackeas por día, déjalo en 0 o lo calculamos luego
+
+        return DailyStats(
+            dailyXp = dailyXp,
+            dailyMinutes = dailyMinutes,
+            perfectLessons = perfectLessons,
+            lessonsToday = lessonsToday,
+            unitsPracticedToday = unitsPracticed,
+            currentStreak = currentStreak,
+            lingotsGainedToday = lingotsToday,
+            heartsCount = heartsCount,
+            correctAnswersToday = correctAnswers
         )
-    }*/
+    }
+
 }

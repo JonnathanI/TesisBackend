@@ -127,32 +127,17 @@ class UserController(
     @GetMapping("/me/challenges")
     fun getMyChallenges(@AuthenticationPrincipal userId: String): ResponseEntity<ChallengesResponse> {
         val uuid = UUID.fromString(userId)
-        val user = userRepository.findById(uuid).orElseThrow { RuntimeException("User not found") }
 
-        // Fecha de última práctica
-        val lastLessonDate = user.lastPracticeDate
-            ?.atZone(java.time.ZoneId.systemDefault())
-            ?.toLocalDate()
-        val today = java.time.LocalDate.now()
-        val isToday = lastLessonDate == today
+        // 📊 Stats reales (o 0 si no hay nada) → desde el service
+        val stats: DailyStats = userService.getTodayStats(uuid)
 
-        // 🔥 Por ahora: valores simples para probar
-        // Puedes luego conectarlos a lógica real.
-        // Ejemplo: si el usuario practicó hoy, asumimos 20 XP, 10 min, 1 lección perfecta, 2 lecciones completadas.
-        val dailyXp: Long = if (isToday) 20L else 0L
-        val minutes: Int = if (isToday) 10 else 0
-        val perfectLessons: Int = if (isToday) 1 else 0
-
-        // 👉 Aquí puedes usar tu repositorio de progreso de lecciones para algo real
-        // Pero para que funcione SIN 500, ponemos 0 o fijo:
-        val lessonsToday: Int = if (isToday) 2 else 0
-
+        // 🎯 Metas del día
         val xpGoal = 50
         val minutesGoal = 15
         val perfectGoal = 2
         val lessonsGoal = 2
 
-        // 🆕 Reto SQL diario (título y snippet desde la BD), envuelto en try-catch
+        // 🧠 Reto SQL del día → también desde el service
         val (sqlTitle, sqlSnippet) = try {
             userService.getDailySqlChallenge(uuid)
         } catch (ex: Exception) {
@@ -160,12 +145,12 @@ class UserController(
             "Reto extra de inglés" to "Realiza una lección hoy 🎯"
         }
 
-        // 🧩 Construimos los retos para el front
+        // 🧩 Retos
         val xpChallenge = SingleChallengeDTO(
             id = 1,
             type = "XP",
             title = "Gana $xpGoal XP hoy",
-            progress = dailyXp.toInt(),
+            progress = stats.dailyXp,
             total = xpGoal
         )
 
@@ -173,7 +158,7 @@ class UserController(
             id = 2,
             type = "TIME",
             title = "Aprende $minutesGoal minutos hoy",
-            progress = minutes,
+            progress = stats.dailyMinutes,
             total = minutesGoal
         )
 
@@ -181,7 +166,7 @@ class UserController(
             id = 3,
             type = "PERFECT",
             title = "Haz $perfectGoal lecciones perfectas",
-            progress = perfectLessons,
+            progress = stats.perfectLessons,
             total = perfectGoal
         )
 
@@ -189,31 +174,36 @@ class UserController(
             id = 4,
             type = "LESSONS",
             title = "Completa $lessonsGoal lecciones hoy",
-            progress = lessonsToday,
+            progress = stats.lessonsToday,
             total = lessonsGoal
         )
 
-        // Reto SQL como challenge extra (solo 0/1)
+        // ✅ SQL se cumple si hizo al menos una lección hoy
         val sqlChallenge = SingleChallengeDTO(
             id = 5,
             type = "SQL",
             title = sqlTitle,
-            progress = if (isToday) 1 else 0,
+            progress = if (stats.lessonsToday > 0) 1 else 0,
             total = 1
         )
 
-        val list = listOf(xpChallenge, timeChallenge, perfectChallenge, lessonsChallenge, sqlChallenge)
+        val list = listOf(
+            xpChallenge,
+            timeChallenge,
+            perfectChallenge,
+            lessonsChallenge,
+            sqlChallenge
+        )
 
-        // Contamos los completados
         val completed = list.count { it.progress >= it.total }
 
         return ResponseEntity.ok(
             ChallengesResponse(
-                dailyExpProgress = dailyXp,
+                dailyExpProgress = stats.dailyXp.toLong(),
                 dailyExpGoal = xpGoal,
-                minutesLearned = minutes,
+                minutesLearned = stats.dailyMinutes,
                 minutesGoal = minutesGoal,
-                perfectLessonsCount = perfectLessons,
+                perfectLessonsCount = stats.perfectLessons,
                 perfectLessonsGoal = perfectGoal,
                 challengesCompleted = completed,
                 sqlTitle = sqlTitle,

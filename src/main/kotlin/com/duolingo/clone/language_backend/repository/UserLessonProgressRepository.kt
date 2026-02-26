@@ -6,6 +6,7 @@ import com.duolingo.clone.language_backend.entity.UserLessonProgressId
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.time.Instant
 import java.util.UUID
 
 interface UserLessonProgressRepository :
@@ -23,7 +24,6 @@ interface UserLessonProgressRepository :
         lessonIds: List<UUID>
     ): List<UserLessonProgressEntity>
 
-    // 👉 la usas en ProgressService para la insignia FIRST_LESSON
     @Query(
         """
         SELECT COUNT(ulp)
@@ -33,7 +33,6 @@ interface UserLessonProgressRepository :
     )
     fun countByUserId(@Param("userId") userId: UUID): Long
 
-    // 👉 la usamos para el reto "lecciones perfectas"
     @Query(
         """
         SELECT COUNT(ulp)
@@ -45,7 +44,6 @@ interface UserLessonProgressRepository :
     )
     fun countPerfectLessons(@Param("userId") userId: UUID): Long
 
-    // 👉 la usas en ProgressService.getPracticeQuestions()
     @Query(
         """
         SELECT l
@@ -53,9 +51,24 @@ interface UserLessonProgressRepository :
         LEFT JOIN UserLessonProgressEntity ulp
           ON l.id = ulp.lesson.id
          AND ulp.user.id = :userId
-        WHERE ulp.id IS NULL OR ulp.isCompleted = false
+       WHERE ulp.lesson.id IS NULL OR ulp.isCompleted = false
         ORDER BY l.lessonOrder ASC
     """
     )
     fun findNextUncompletedLesson(@Param("userId") userId: UUID): LessonEntity?
+
+    // 🔥 Para las stats del día: usamos lastPracticed
+    @Query(
+        """
+        SELECT ulp
+        FROM UserLessonProgressEntity ulp
+        WHERE ulp.user.id = :userId
+          AND ulp.lastPracticed BETWEEN :start AND :end
+    """
+    )
+    fun findByUserIdAndCompletedAtBetween(
+        @Param("userId") userId: UUID,
+        @Param("start") start: Instant,
+        @Param("end") end: Instant
+    ): List<UserLessonProgressEntity>
 }
