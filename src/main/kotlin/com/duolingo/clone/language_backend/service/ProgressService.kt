@@ -359,4 +359,58 @@ class ProgressService(
             )
         }
     }
+
+    fun getAllUnitsForStudent(userId: UUID): List<UnitStatusDTO> {
+
+        // Unidades SOLO de cursos donde el alumno está en course.students
+        val units = unitRepository.findAllByStudentIdOrderByUnitOrderAsc(userId)
+
+        // Progreso del alumno en TODAS sus lecciones
+        val progress = userLessonProgressRepository.findByUserId(userId)
+
+        val completedLessonIds = progress
+            .filter { it.isCompleted }
+            .map { it.lesson.id }
+            .toSet()
+
+        // Control para bloquear unidades posteriores (como ya haces)
+        var previousCompleted = true
+
+        return units.map { unit ->
+
+            val lessons = lessonRepository.findAllByUnitIdOrderByLessonOrderAsc(unit.id!!)
+
+            val DTOs = lessons.map { lesson ->
+                LessonProgressDTO(
+                    id = lesson.id!!,
+                    title = lesson.title,
+                    lessonOrder = lesson.lessonOrder,
+                    requiredXp = lesson.requiredXp,
+                    isCompleted = completedLessonIds.contains(lesson.id),
+                    masteryLevel = 0,
+                    lastPracticed = null
+                )
+            }
+
+            val isCompletedUnit =
+                lessons.isNotEmpty() &&
+                        lessons.all { completedLessonIds.contains(it.id) }
+
+            val isLocked = !previousCompleted
+
+            if (!isCompletedUnit) previousCompleted = false
+
+            // Si quieres, podrías dar insignia aquí también,
+            // pero eso ya lo haces en getCourseProgress; puedes decidir.
+
+            UnitStatusDTO(
+                id = unit.id!!,
+                title = unit.title,
+                unitOrder = unit.unitOrder,
+                isLocked = isLocked,
+                isCompleted = isCompletedUnit,
+                lessons = DTOs
+            )
+        }
+    }
 }

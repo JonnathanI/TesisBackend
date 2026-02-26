@@ -1,18 +1,23 @@
 package com.duolingo.clone.language_backend.service
 
 import com.duolingo.clone.language_backend.dto.*
+import com.duolingo.clone.language_backend.entity.DailySqlChallengeEntity
 import com.duolingo.clone.language_backend.entity.UserEntity
 import com.duolingo.clone.language_backend.entity.RegistrationCodeEntity
 import com.duolingo.clone.language_backend.entity.UserRelationship
 import com.duolingo.clone.language_backend.enums.Role
 import com.duolingo.clone.language_backend.repository.*
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import jakarta.transaction.Transactional
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import java.time.Instant
-
+import java.time.LocalDate
+import java.time.ZoneId
+import com.fasterxml.jackson.module.kotlin.readValue
 import java.util.*
 import java.util.regex.Pattern
+import kotlin.math.abs
 
 @Service
 class UserService(
@@ -21,9 +26,11 @@ class UserService(
     private val registrationCodeRepository: RegistrationCodeRepository,
     private val unitRepository: UnitRepository,
     private val userLessonProgressRepository: UserLessonProgressRepository,
-    private val userRelationshipRepository: UserRelationshipRepository
+    private val userRelationshipRepository: UserRelationshipRepository,
+    private val dailySqlChallengeRepository: DailySqlChallengeRepository
 ) {
-
+    private val zone = ZoneId.of("America/Guayaquil")
+    private val mapper = jacksonObjectMapper()
     private val EMAIL_REGEX =
         Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")
 
@@ -571,4 +578,55 @@ class UserService(
         return userRepository.save(user)
     }
 
+    fun getPerfectLessonsCount(userId: UUID): Int {
+        return userLessonProgressRepository.countPerfectLessons(userId).toInt()
+    }
+
+    fun getDailySqlChallenge(userId: UUID): Pair<String, String> {
+        // 1. Cargamos todos los retos desde la tabla
+        val challenges = dailySqlChallengeRepository.findAll()
+
+        // 2. Si no hay nada en la tabla, devolvemos un fallback
+        if (challenges.isEmpty()) {
+            return "Practica libre de inglés" to "Realiza cualquier lección hoy 🎧📚"
+        }
+
+        // 3. Hacemos que el reto dependa del usuario + día (fijo 24h)
+        val today = LocalDate.now(zone)
+        val seed = kotlin.math.abs(userId.hashCode() + today.toEpochDay().toInt())
+        val index = (seed % challenges.size).toInt()
+
+        val challenge = challenges[index]
+
+        return challenge.title to challenge.snippet
+    }
+/*
+    fun toSingleChallengeDTO(
+        challenge: DailySqlChallengeEntity,
+        stats: DailyStats
+    ): SingleChallengeDTO {
+
+        val progress = when (challenge.type.uppercase()) {
+            "XP"       -> stats.dailyXp
+            "TIME"     -> stats.dailyMinutes
+            "PERFECT"  -> stats.perfectLessons
+            "LESSONS"  -> stats.lessonsToday
+            "UNITS"    -> stats.unitsPracticedToday
+            "STREAK"   -> stats.currentStreak
+            "LINGS"    -> stats.lingotsGainedToday
+            "HEARTS"   -> stats.heartsCount
+            "CORRECT"  -> stats.correctAnswersToday
+            else       -> 0
+        }
+
+        val target = (challenge.goalValue ?: 1).coerceAtLeast(1)
+
+        return SingleChallengeDTO(
+            id = (challenge.id ?: 0L).toInt(),
+            type = challenge.type,
+            title = challenge.title,
+            progress = progress.coerceAtMost(target),
+            total = target
+        )
+    }*/
 }

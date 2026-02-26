@@ -144,4 +144,13 @@ class ProgressController(
         val statusList = progressService.getCourseProgress(courseId, userUuid)
         return ResponseEntity.ok(statusList)
     }
+
+    @GetMapping("/my-units")
+    fun getMyUnits(
+        @AuthenticationPrincipal userId: String
+    ): ResponseEntity<List<UnitStatusDTO>> {
+        val userUuid = UUID.fromString(userId)
+        val units = progressService.getAllUnitsForStudent(userUuid)
+        return ResponseEntity.ok(units)
+    }
 }

@@ -2,6 +2,7 @@ package com.duolingo.clone.language_backend.controller
 
 import com.duolingo.clone.language_backend.dto.*
 import com.duolingo.clone.language_backend.enums.Role
+import com.duolingo.clone.language_backend.repository.DailySqlChallengeRepository
 import com.duolingo.clone.language_backend.repository.UserRepository
 import com.duolingo.clone.language_backend.service.UserService
 import org.springframework.http.ResponseEntity
@@ -10,13 +11,13 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 import java.time.Instant
 import java.util.UUID
-import java.time.LocalDateTime // Necesitas este import para el campo
 
 @RestController
 @RequestMapping("/api/users")
 class UserController(
     private val userRepository: UserRepository,
-    private val userService: UserService
+    private val userService: UserService,
+    private val dailySqlChallengeRepository: DailySqlChallengeRepository
 ) {
 
     @GetMapping("/me")
@@ -128,30 +129,96 @@ class UserController(
         val uuid = UUID.fromString(userId)
         val user = userRepository.findById(uuid).orElseThrow { RuntimeException("User not found") }
 
-        // CORRECCIÓN: Convertir Instant a LocalDate correctamente usando la zona horaria del sistema
-        val lastLessonDate = user.lastPracticeDate?.atZone(java.time.ZoneId.systemDefault())?.toLocalDate()
-        val isToday = lastLessonDate == java.time.LocalDate.now()
+        // Fecha de última práctica
+        val lastLessonDate = user.lastPracticeDate
+            ?.atZone(java.time.ZoneId.systemDefault())
+            ?.toLocalDate()
+        val today = java.time.LocalDate.now()
+        val isToday = lastLessonDate == today
 
-        // DEBUG: Imprime en consola para ver qué está pasando
-        println("DEBUG: Last lesson date: $lastLessonDate | Is today: $isToday")
+        // 🔥 Por ahora: valores simples para probar
+        // Puedes luego conectarlos a lógica real.
+        // Ejemplo: si el usuario practicó hoy, asumimos 20 XP, 10 min, 1 lección perfecta, 2 lecciones completadas.
+        val dailyXp: Long = if (isToday) 20L else 0L
+        val minutes: Int = if (isToday) 10 else 0
+        val perfectLessons: Int = if (isToday) 1 else 0
 
-        // Lógica: Si el usuario tiene XP y practicó hoy, mostramos progreso real
-        // Si no tienes columna de dailyXp, usaremos el XP Total como indicador para la prueba
-        val dailyXp = if (isToday) 20L else 0L
-        val perfectLessons = if (isToday) 1 else 0
-        val minutes = if (isToday) 5 else 0
+        // 👉 Aquí puedes usar tu repositorio de progreso de lecciones para algo real
+        // Pero para que funcione SIN 500, ponemos 0 o fijo:
+        val lessonsToday: Int = if (isToday) 2 else 0
 
-        var completed = 0
-        if (dailyXp >= 10) completed++
-        if (minutes >= 5) completed++
-        if (perfectLessons >= 1) completed++ // Bajamos a 1 para que veas la barra moverse
+        val xpGoal = 50
+        val minutesGoal = 15
+        val perfectGoal = 2
+        val lessonsGoal = 2
+
+        // 🆕 Reto SQL diario (título y snippet desde la BD), envuelto en try-catch
+        val (sqlTitle, sqlSnippet) = try {
+            userService.getDailySqlChallenge(uuid)
+        } catch (ex: Exception) {
+            ex.printStackTrace()
+            "Reto extra de inglés" to "Realiza una lección hoy 🎯"
+        }
+
+        // 🧩 Construimos los retos para el front
+        val xpChallenge = SingleChallengeDTO(
+            id = 1,
+            type = "XP",
+            title = "Gana $xpGoal XP hoy",
+            progress = dailyXp.toInt(),
+            total = xpGoal
+        )
+
+        val timeChallenge = SingleChallengeDTO(
+            id = 2,
+            type = "TIME",
+            title = "Aprende $minutesGoal minutos hoy",
+            progress = minutes,
+            total = minutesGoal
+        )
+
+        val perfectChallenge = SingleChallengeDTO(
+            id = 3,
+            type = "PERFECT",
+            title = "Haz $perfectGoal lecciones perfectas",
+            progress = perfectLessons,
+            total = perfectGoal
+        )
+
+        val lessonsChallenge = SingleChallengeDTO(
+            id = 4,
+            type = "LESSONS",
+            title = "Completa $lessonsGoal lecciones hoy",
+            progress = lessonsToday,
+            total = lessonsGoal
+        )
+
+        // Reto SQL como challenge extra (solo 0/1)
+        val sqlChallenge = SingleChallengeDTO(
+            id = 5,
+            type = "SQL",
+            title = sqlTitle,
+            progress = if (isToday) 1 else 0,
+            total = 1
+        )
+
+        val list = listOf(xpChallenge, timeChallenge, perfectChallenge, lessonsChallenge, sqlChallenge)
+
+        // Contamos los completados
+        val completed = list.count { it.progress >= it.total }
 
         return ResponseEntity.ok(
             ChallengesResponse(
                 dailyExpProgress = dailyXp,
+                dailyExpGoal = xpGoal,
                 minutesLearned = minutes,
+                minutesGoal = minutesGoal,
                 perfectLessonsCount = perfectLessons,
-                challengesCompleted = completed
+                perfectLessonsGoal = perfectGoal,
+                challengesCompleted = completed,
+                sqlTitle = sqlTitle,
+                sqlSnippet = sqlSnippet,
+                challenges = list
             )
         )
     }
