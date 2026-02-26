@@ -1,8 +1,6 @@
 package com.duolingo.clone.language_backend.controller
 
-import com.duolingo.clone.language_backend.dto.CreateCourseDTO
-import com.duolingo.clone.language_backend.dto.QuestionRequest
-import com.duolingo.clone.language_backend.dto.StudentSummaryDTO
+import com.duolingo.clone.language_backend.dto.*
 import com.duolingo.clone.language_backend.entity.CourseEntity
 import com.duolingo.clone.language_backend.entity.LessonEntity
 import com.duolingo.clone.language_backend.entity.QuestionEntity
@@ -64,22 +62,28 @@ class TeacherContentController(
 
     // 🔹 SOLO UNIDADES DE CURSOS DEL PROFESOR
     @GetMapping("/units")
-    fun getAllUnits(): ResponseEntity<List<UnitEntity>> {
+    fun getAllUnits(): ResponseEntity<List<UnitDTO>> {
         val teacherId = currentUserService.getCurrentUserId()
         val units = unitRepository.findAllByCourseTeacherIdOrderByUnitOrderAsc(teacherId)
-        println("🔎 [TeacherContentController] teacherId=$teacherId, unidades=${units.size}")
-        return ResponseEntity.ok(units)
+
+        val dtoList = units.map { u ->
+            UnitDTO(
+                id = u.id!!,
+                title = u.title,
+                unitOrder = u.unitOrder,
+                courseId = u.course.id!!     // 👈 AQUÍ VIENE EL courseId
+            )
+        }
+
+        println("🔎 [TeacherContentController] teacherId=$teacherId, unidades=${dtoList.size}")
+        return ResponseEntity.ok(dtoList)
     }
 
     @PostMapping("/units")
-    fun createUnit(@RequestBody request: Map<String, Any>): ResponseEntity<UnitEntity> {
+    fun createUnit(@RequestBody dto: UnitRequest): ResponseEntity<UnitEntity> {
         val teacherId = currentUserService.getCurrentUserId()
 
-        val courseId = UUID.fromString(request["courseId"] as String)
-        val title = request["title"] as String
-        val order = (request["unitOrder"] as Number).toInt()
-
-        val course = courseRepository.findById(courseId)
+        val course = courseRepository.findById(dto.courseId)
             .orElseThrow { RuntimeException("Curso no encontrado") }
 
         // 🔒 Validar que el curso pertenece al profe actual
@@ -87,12 +91,21 @@ class TeacherContentController(
             throw RuntimeException("No tienes permiso para modificar este curso")
         }
 
-        val unit = UnitEntity(title = title, unitOrder = order, course = course)
+        val unit = UnitEntity(
+            title = dto.title,
+            unitOrder = dto.unitOrder,
+            course = course
+        )
+
         return ResponseEntity.ok(unitRepository.save(unit))
     }
 
     @PutMapping("/units/{id}")
-    fun updateUnit(@PathVariable id: UUID, @RequestBody request: Map<String, Any>): ResponseEntity<UnitEntity> {
+    fun updateUnit(
+        @PathVariable id: UUID,
+        @RequestBody dto: UpdateUnitRequest
+    ): ResponseEntity<UnitEntity> {
+
         val teacherId = currentUserService.getCurrentUserId()
 
         val unit = unitRepository.findById(id)
@@ -104,10 +117,12 @@ class TeacherContentController(
         }
 
         val updatedUnit = unit.copy(
-            title = request["title"] as String,
-            unitOrder = (request["unitOrder"] as Number).toInt()
+            title = dto.title,
+            unitOrder = dto.unitOrder
         )
-        return ResponseEntity.ok(unitRepository.save(updatedUnit))
+
+        val saved = unitRepository.save(updatedUnit)
+        return ResponseEntity.ok(saved)
     }
 
     @DeleteMapping("/units/{id}")
