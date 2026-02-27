@@ -6,6 +6,7 @@ import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import java.io.FileInputStream
 
 @Service
 class FcmService {
@@ -15,11 +16,10 @@ class FcmService {
         "https://fcm.googleapis.com/v1/projects/europeek-ee4ae/messages:send"
 
     private fun getAccessToken(): String {
-        val credentialsJson = System.getenv("FIREBASE_CREDENTIALS")
-            ?: throw IllegalStateException("FIREBASE_CREDENTIALS no está configurado")
+        val credentialsPath = "/etc/englishpeak/firebase-admin.json"
 
         val credentials = GoogleCredentials
-            .fromStream(ByteArrayInputStream(credentialsJson.toByteArray()))
+            .fromStream(FileInputStream(credentialsPath))
             .createScoped(listOf("https://www.googleapis.com/auth/firebase.messaging"))
 
         credentials.refreshIfExpired()
