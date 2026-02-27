@@ -87,4 +87,14 @@ class NotificationService(
 
     fun getUnreadCount(currentUser: UserEntity): Long =
         notificationRepository.countByUserAndReadIsFalse(currentUser)
+
+    fun sendTestPush(userId: UUID, token: String) {
+        println("🚀 Enviando push de prueba a userId=$userId, token=$token")
+
+        fcmService.sendPush(
+            token = token,
+            title = "🔔 Notificación de prueba",
+            body = "Hola, esta es una notificación de prueba para tu cuenta."
+        )
+    }
 }

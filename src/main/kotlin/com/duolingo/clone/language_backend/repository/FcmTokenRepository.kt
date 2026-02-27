@@ -14,4 +14,6 @@ interface FcmTokenRepository : JpaRepository<FcmTokenEntity, UUID> {
     fun findByToken(token: String): FcmTokenEntity?
 
     fun findAllByUserAndActiveIsTrue(user: UserEntity): List<FcmTokenEntity>
+
+    fun findFirstByUserIdAndActiveTrueOrderByIdDesc(userId: UUID): FcmTokenEntity?
 }

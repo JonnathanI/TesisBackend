@@ -43,4 +43,8 @@ class FcmTokenService(
         fcmTokenRepository.save(entity)
         println("✅ Nuevo token FCM registrado para ${user.email}: $token")
     }
+    fun getLastActiveTokenForUser(userId: UUID): String? {
+        val entity = fcmTokenRepository.findFirstByUserIdAndActiveTrueOrderByIdDesc(userId)
+        return entity?.token
+    }
 }

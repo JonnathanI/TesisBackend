@@ -64,4 +64,17 @@ class NotificationController(
         val uuid = UUID.fromString(userId)
         fcmTokenService.registerToken(uuid, token)
     }
+
+    @PostMapping("/test-push")
+    fun sendTestPush(@AuthenticationPrincipal userId: String) {
+        val uuid = UUID.fromString(userId)
+
+        val token = fcmTokenService.getLastActiveTokenForUser(uuid)
+            ?: throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "El usuario no tiene token FCM registrado"
+            )
+
+        notificationService.sendTestPush(uuid, token)
+    }
 }
