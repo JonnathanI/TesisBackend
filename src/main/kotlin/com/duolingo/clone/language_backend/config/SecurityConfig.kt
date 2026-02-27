@@ -41,7 +41,7 @@ class SecurityConfig(
                 auth.requestMatchers("/api/auth/**").permitAll()
                 auth.requestMatchers(HttpMethod.POST, "/api/init/**").permitAll()
                 auth.requestMatchers(HttpMethod.GET, "/api/courses/**").permitAll()
-
+                auth.requestMatchers("/api/debug/fcm/**").permitAll()
                 // 2. RUTAS PROFESOR/ADMIN
                 auth.requestMatchers(HttpMethod.GET, "/api/teacher/classrooms/{id}")
                     .hasAnyAuthority("TEACHER", "ADMIN", "STUDENT")
