@@ -8,7 +8,7 @@ import java.io.ByteArrayInputStream
 
 @Configuration
 class FirebaseConfig {
-
+/*
     init {
         try {
             val credentialsJson = System.getenv("FIREBASE_CREDENTIALS")
@@ -34,5 +34,5 @@ class FirebaseConfig {
             ex.printStackTrace()
             println("❌ Error inicializando Firebase Admin (ENV)")
         }
-    }
+    }*/
 }
