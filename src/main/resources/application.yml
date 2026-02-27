@@ -26,22 +26,8 @@ spring:
   flyway:
     enabled: false
 
-  # CONFIGURACIÓN DE CORREO (CORREGIDA PARA RENDER)
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: inaguasojonnathan6@gmail.com
-    password: dutxhupaitaajlvy
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-            required: true
-        # Se eliminaron las propiedades de SSL directo/SocketFactory
-        # porque Render bloquea el puerto 465 frecuentemente.
-
+sendgrid:
+  api-key: ${SENDGRID_API_KEY:}
 # ================================
 # 💡 URL DEL FRONTEND (PARA RECUPERAR CONTRASEÑA)
 # ================================

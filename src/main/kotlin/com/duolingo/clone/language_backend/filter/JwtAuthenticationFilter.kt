@@ -23,7 +23,24 @@ class JwtAuthenticationFilter(
         response: HttpServletResponse,
         filterChain: FilterChain
     ) {
+        val path = request.servletPath
+
+        // 🚫 RUTAS QUE NO DEBEN PASAR POR EL FILTRO JWT
+        if (
+            path.startsWith("/api/auth") ||          // login, register, etc.
+            path.startsWith("/ws") ||                // websockets
+            path.startsWith("/api/debug/fcm") ||     // 👈 nuestro endpoint de pruebas
+            path.startsWith("/h2-console") ||
+            path == "/error"
+        ) {
+            filterChain.doFilter(request, response)
+            return
+        }
+
         val authHeader = request.getHeader("Authorization")
+
+        // Si no hay Authorization o no es Bearer, simplemente dejamos pasar.
+        // SecurityConfig decidirá si la ruta requiere auth o no.
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response)
             return
@@ -55,7 +72,6 @@ class JwtAuthenticationFilter(
 
                     SecurityContextHolder.getContext().authentication = authToken
                 }
-
             }
 
         } catch (e: io.jsonwebtoken.ExpiredJwtException) {
@@ -70,5 +86,4 @@ class JwtAuthenticationFilter(
 
         filterChain.doFilter(request, response)
     }
-
 }

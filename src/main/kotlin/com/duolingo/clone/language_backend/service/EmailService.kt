@@ -1,27 +1,43 @@
 package com.duolingo.clone.language_backend.service
 
-import org.springframework.mail.SimpleMailMessage
-import org.springframework.mail.javamail.JavaMailSender
+import com.sendgrid.Method
+import com.sendgrid.Request
+import com.sendgrid.SendGrid
+import com.sendgrid.helpers.mail.Mail
+import com.sendgrid.helpers.mail.objects.Content
+import com.sendgrid.helpers.mail.objects.Email
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
 @Service
 class EmailService(
-    private val mailSender: JavaMailSender
+    @Value("\${sendgrid.api-key}") private val sendgridApiKey: String
 ) {
+
     fun sendEmail(to: String, subject: String, body: String) {
         try {
-            val message = SimpleMailMessage()
-            message.setTo(to)
-            message.subject = subject
-            message.text = body
-            mailSender.send(message)
-            println("✅ Correo enviado exitosamente a $to")
-        } catch (e: Exception) {
-            println("❌ ERROR REAL DE SMTP: ${e.message}") // 💡 Esto te dirá si es "Auth Failed" o "Timeout"
-            e.printStackTrace() // Esto imprimirá el rastro completo en Render
+            val fromEmail = Email("jonnathanjose67@gmail.com")  // tu correo verificado en SendGrid
+            val toEmail = Email(to)
+            val content = Content("text/plain", body)
 
-            println("🔗 LINK DE RESPALDO (Copiado de la consola):")
-            println(body)
+            val mail = Mail(fromEmail, subject, toEmail, content)
+
+            val sendGrid = SendGrid(sendgridApiKey)
+
+            val request = Request()
+            request.method = Method.POST        // ✅ ahora sí es válido
+            request.endpoint = "mail/send"
+            request.body = mail.build()
+
+            val response = sendGrid.api(request)
+
+            println("📧 SendGrid Status: ${response.statusCode}")
+            println("📨 Body: ${response.body}")
+            println("📬 Headers: ${response.headers}")
+
+        } catch (e: Exception) {
+            println("❌ ERROR EN SENDGRID: ${e.message}")
+            e.printStackTrace()
         }
     }
 }
